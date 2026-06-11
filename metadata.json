@@ -1,0 +1,8 @@
+{
+  "name": "Remix: ক্ষুদ্র সঞ্চয় সমিতি",
+  "description": "ক্ষুদ্র সঞ্চয় সমিতির সদস্য, সঞ্চয়, ঋণ এবং কিস্তি ব্যবস্থাপনার জন্য একটি পূর্ণাঙ্গ সহজ বাংলা অ্যাপ্লিকেশন।",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

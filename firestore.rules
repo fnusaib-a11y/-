@@ -1,0 +1,31 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Allow read/write for all collections to guarantee APK and offline-first sync reliability
+    match /members/{memberId} {
+      allow read, write: if true;
+    }
+
+    match /installments/{installmentId} {
+      allow read, write: if true;
+    }
+
+    match /loans/{loanId} {
+      allow read, write: if true;
+    }
+
+    match /trash/{trashId} {
+      allow read, write: if true;
+    }
+
+    match /notifications/{notifId} {
+      allow read, write: if true;
+    }
+
+    // Fallback rule
+    match /{document=**} {
+      allow read, write: if true;
+    }
+  }
+}

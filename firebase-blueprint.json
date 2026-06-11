@@ -1,0 +1,102 @@
+{
+  "entities": {
+    "Member": {
+      "title": "Member",
+      "description": "Association Member profile details",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "phone": { "type": "string" },
+        "address": { "type": "string" },
+        "nid": { "type": "string" },
+        "photoUrl": { "type": "string" },
+        "joinDate": { "type": "string" },
+        "type": { "type": "string", "enum": ["daily", "weekly", "monthly"] },
+        "targetInstallmentAmount": { "type": "number" },
+        "status": { "type": "string", "enum": ["active", "inactive"] },
+        "pin": { "type": "string" }
+      },
+      "required": ["id", "name", "phone", "address", "nid", "joinDate", "type", "targetInstallmentAmount", "status", "pin"]
+    },
+    "Installment": {
+      "title": "Installment",
+      "description": "Member savings installment deposit log",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "memberId": { "type": "string" },
+        "memberName": { "type": "string" },
+        "amount": { "type": "number" },
+        "date": { "type": "string" },
+        "type": { "type": "string", "enum": ["daily", "weekly", "monthly"] }
+      },
+      "required": ["id", "memberId", "memberName", "amount", "date", "type"]
+    },
+    "Loan": {
+      "title": "Loan",
+      "description": "Loan transaction record for members",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "memberId": { "type": "string" },
+        "memberName": { "type": "string" },
+        "principalAmount": { "type": "number" },
+        "takenDate": { "type": "string" },
+        "dueDate": { "type": "string" },
+        "repaidAmount": { "type": "number" },
+        "installmentAmount": { "type": "number" },
+        "status": { "type": "string", "enum": ["active", "paid", "overdue"] }
+      },
+      "required": ["id", "memberId", "memberName", "principalAmount", "takenDate", "dueDate", "repaidAmount", "installmentAmount", "status"]
+    },
+    "TrashLog": {
+      "title": "TrashLog",
+      "description": "Log of deleted items for potential restore",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "type": { "type": "string", "enum": ["member", "installment", "loan"] },
+        "data": { "type": "object" },
+        "deletedAt": { "type": "string" },
+        "description": { "type": "string" }
+      },
+      "required": ["id", "type", "data", "deletedAt", "description"]
+    },
+    "AdminNotification": {
+      "title": "AdminNotification",
+      "description": "Notifications of actions or alerts in the system",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "message": { "type": "string" },
+        "date": { "type": "string" },
+        "read": { "type": "boolean" }
+      },
+      "required": ["id", "title", "message", "date", "read"]
+    }
+  },
+  "firestore": {
+    "/members/{memberId}": {
+      "schema": "Member",
+      "description": "System registered members"
+    },
+    "/installments/{installmentId}": {
+      "schema": "Installment",
+      "description": "System registered installments"
+    },
+    "/loans/{loanId}": {
+      "schema": "Loan",
+      "description": "System registered loans"
+    },
+    "/trash/{trashId}": {
+      "schema": "TrashLog",
+      "description": "System history trash log"
+    },
+    "/notifications/{notifId}": {
+      "schema": "AdminNotification",
+      "description": "System notifications"
+    }
+  }
+}
