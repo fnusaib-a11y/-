@@ -1,6 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
+import { getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from 'firebase/firestore';
 import firebaseConfig from './firebase-applet-config.json';
 
 const rawConfig: any = firebaseConfig;
@@ -13,7 +13,20 @@ console.log('[Firebase Init] Extracted firebaseConfig:', {
 });
 
 const app = initializeApp(config);
-export const db = getFirestore(app);
+
+let dbInstance;
+try {
+  dbInstance = initializeFirestore(app, {
+    localCache: persistentLocalCache({
+      tabManager: persistentMultipleTabManager(),
+    }),
+  });
+} catch (e) {
+  console.warn('[Firebase Init] Persistent local cache initialization failed, falling back to default:', e);
+  dbInstance = getFirestore(app);
+}
+
+export const db = dbInstance;
 export const auth = getAuth(app);
 
 console.log('[Firebase Init] Firestore instance initialized:', !!db);
@@ -49,7 +62,15 @@ export interface FirestoreErrorInfo {
   }
 }
 
-export function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
+export function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null, shouldThrow = true) {
+  const isNetworkOrUnavailable = 
+    error && 
+    typeof error === 'object' && 
+    (('code' in error && (error.code === 'unavailable' || error.code === 'failed-precondition' || error.code === 'permission-denied')) ||
+     ('message' in error && String(error.message).toLowerCase().includes('reach cloud firestore backend')) ||
+     ('message' in error && String(error.message).toLowerCase().includes('offline')) ||
+     ('message' in error && String(error.message).toLowerCase().includes('unavailable')));
+
   const errInfo: FirestoreErrorInfo = {
     error: error instanceof Error ? error.message : String(error),
     authInfo: {
@@ -66,6 +87,13 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
     operationType,
     path
   };
-  console.error('Firestore Error: ', JSON.stringify(errInfo));
+  
+  console.warn('[Firestore Status Warning]:', JSON.stringify(errInfo));
+  
+  if (isNetworkOrUnavailable || !shouldThrow) {
+    console.log('[Firestore] Gracefully operating in local mode (Offline is Active).');
+    return;
+  }
+  
   throw new Error(JSON.stringify(errInfo));
 }

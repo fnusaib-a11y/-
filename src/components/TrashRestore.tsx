@@ -3,7 +3,7 @@ import { TrashLog, AppConfig } from '../types';
 import { 
   RotateCcw, Download, Upload, Trash2, Database, Shield, 
   MapPin, Phone, User, Key, Save, Image, CheckCircle, RefreshCw, 
-  ShieldAlert, AlertCircle
+  ShieldAlert, AlertCircle, AlertTriangle
 } from 'lucide-react';
 
 interface TrashRestoreProps {
@@ -15,6 +15,7 @@ interface TrashRestoreProps {
   fullState: any; // Entire localstorage dump for backup download!
   appConfig: AppConfig;
   onUpdateAppConfig: (newConfig: AppConfig) => Promise<void>;
+  overdueMembersList?: any[];
 }
 
 export default function TrashRestore({ 
@@ -25,7 +26,8 @@ export default function TrashRestore({
   onImportBackup, 
   fullState,
   appConfig,
-  onUpdateAppConfig
+  onUpdateAppConfig,
+  overdueMembersList = []
 }: TrashRestoreProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
@@ -44,6 +46,12 @@ export default function TrashRestore({
 
   const [isSaving, setIsSaving] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
+  const [showOverdueDetails, setShowOverdueDetails] = useState(false);
+
+  const toBengaliDigits = (num: number | string) => {
+    const bnDigits = ['০', '১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯'];
+    return num.toString().replace(/\d/g, (d) => bnDigits[parseInt(d)]);
+  };
 
   // Custom dialogue state for sandbox / iframe safety
   const [dialog, setDialog] = useState<{
@@ -188,6 +196,79 @@ export default function TrashRestore({
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">অফিস পরিচিতি, পরিচালক ও সম্মানিত শেয়ারহোল্ডারদের অ্যাক্সেস তথ্য পরিবর্তন এবং রিসাইকেল বিন পুনরুদ্ধার।</p>
         </div>
       </div>
+
+      {overdueMembersList.length > 0 && (
+        <div id="overdue-alerts-banner" className="bg-rose-50 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-900 rounded-3xl p-5 text-left space-y-4 shadow-sm animate-fadeIn">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+            <div className="flex items-start gap-3">
+              <div className="p-2 bg-rose-100 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 rounded-2xl shrink-0">
+                <AlertTriangle className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-rose-800 dark:text-rose-300">🚨 বকেয়া কিস্তি আদায় নোটিফিকেশন</h3>
+                <p className="text-xs text-rose-600/80 dark:text-rose-450 mt-1 font-sans">
+                  সরাসরি ডাটাবেজ থেকে চিহ্নিত: <strong className="font-mono">{toBengaliDigits(overdueMembersList.length)} জন</strong> সক্রিয় সদস্যের কিস্তি প্রদানের সময় পার হয়ে গেছে কিন্তু এখনো কোনো কিস্তি দেননি!
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowOverdueDetails(!showOverdueDetails)}
+              className="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-705 text-white dark:bg-rose-900 dark:hover:bg-rose-850 rounded-xl text-xs font-bold font-sans cursor-pointer transition-colors shadow-sm shrink-0"
+            >
+              {showOverdueDetails ? 'তালিকা লুকান' : 'বকেয়া তালিকা দেখুন'}
+            </button>
+          </div>
+
+          {showOverdueDetails && (
+            <div className="border-t border-rose-200/50 dark:border-rose-900/40 pt-4 overflow-hidden">
+              <div className="overflow-x-auto rounded-xl">
+                <table className="w-full text-xs text-left text-slate-705 dark:text-slate-300">
+                  <thead>
+                    <tr className="bg-rose-100/40 dark:bg-rose-950/20 text-rose-800 dark:text-rose-300 font-bold border-b border-rose-200/50">
+                      <th className="p-2.5">সদস্যের নাম ও আইডি</th>
+                      <th className="p-2.5">মোবাইল</th>
+                      <th className="p-2.5 text-center">কিস্তির ধরণ</th>
+                      <th className="p-2.5 text-right">শেষ পরিশোধ</th>
+                      <th className="p-2.5 text-right">বকেয়া সময়</th>
+                      <th className="p-2.5 text-center">যোগাযোগ</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-rose-200/20 dark:divide-rose-900/25">
+                    {overdueMembersList.map((item: any, idx: number) => (
+                      <tr key={idx} className="hover:bg-rose-100/20 dark:hover:bg-rose-950/10">
+                        <td className="p-2.5">
+                          <span className="font-semibold block">{item.member.name}</span>
+                          <span className="text-[10px] text-slate-400 font-mono">ID: {item.member.id}</span>
+                        </td>
+                        <td className="p-2.5 font-mono">{item.member.phone}</td>
+                        <td className="p-2.5 text-center">
+                          <span className="px-1.5 py-0.5 bg-rose-150 dark:bg-rose-950 text-rose-800 dark:text-rose-300 rounded text-[9.5px] font-bold">
+                            {item.member.type === 'daily' ? 'দৈনিক' : item.member.type === 'weekly' ? 'সাপ্তাহিক' : 'মাসিক'}
+                          </span>
+                        </td>
+                        <td className="p-2.5 text-right font-mono text-slate-500">{item.lastPaidDate}</td>
+                        <td className="p-2.5 text-right font-semibold text-rose-600 font-sans">
+                          {toBengaliDigits(item.days)} দিন পার
+                        </td>
+                        <td className="p-2.5 text-center">
+                          <a
+                            href={`tel:${item.member.phone}`}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 bg-rose-500 hover:bg-rose-600 text-white rounded-lg text-[10px] font-bold shadow-sm transition-colors cursor-pointer"
+                          >
+                            <Phone className="h-3 w-3" />
+                            কল করুন
+                          </a>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Row 1: App Settings (Full Width Form) */}
       <div className="bg-white rounded-2xl shadow-sm border border-slate-100 dark:bg-slate-900 dark:border-slate-800 overflow-hidden text-left">
@@ -378,17 +459,7 @@ export default function TrashRestore({
               </div>
             </div>
 
-            <div className="space-y-2">
-              <label className="block text-xs font-bold text-rose-600 dark:text-rose-450 mb-1">⚠️ সাধারণ সবার জন্য জরুরি অ্যালার্ট নোটিশ (General Notice)</label>
-              <textarea
-                value={noticeText}
-                onChange={(e) => setNoticeText(e.target.value)}
-                rows={2}
-                className="w-full p-3.5 bg-slate-50 border border-slate-200 dark:border-slate-750 dark:bg-slate-950 dark:text-white rounded-xl text-xs font-sans outline-none focus:ring-1 focus:ring-emerald-500 font-medium leading-relaxed"
-                placeholder="সবার জন্য সাধারণ স্থগিত নোটিশ এখানে লিখুন..."
-              />
-              <p className="text-[10px] text-slate-400 dark:text-slate-500">* এই নোটিশটি সকল গ্রাহক ও অংশীদারদের লগইন পরবর্তী মূল ড্যাশবোর্ডে জরুরি অ্যালার্ট আকারে প্রচারিত হবে।</p>
-            </div>
+
           </div>
 
           {/* Form Action save control */}

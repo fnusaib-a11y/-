@@ -1,0 +1,8 @@
+{
+	"appId": "com.pipilikaslab.shomiti",
+	"appName": "remix-shomiti",
+	"webDir": "dist",
+	"server": {
+		"androidScheme": "https"
+	}
+}

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Member, Installment } from '../types';
-import { PlusCircle, Search, Printer, Receipt, MessageSquare, Send, X, Calendar, User, DollarSign, Wallet, Download, ArrowLeft, Banknote, Gavel, Check, Trash2, ShieldAlert, AlertCircle } from 'lucide-react';
+import { PlusCircle, Search, Printer, Receipt, MessageSquare, Send, X, Calendar, User, DollarSign, Wallet, Download, ArrowLeft, Banknote, Gavel, Check, Trash2, ShieldAlert, AlertCircle, Percent } from 'lucide-react';
 import { ADMIN_PROFILE } from '../db';
 import { downloadPdf } from '../utils/pdfHelper';
 
@@ -72,6 +72,7 @@ export default function Installments({ members, installments, onAddInstallment, 
   const [memberId, setMemberId] = useState('');
   const [amount, setAmount] = useState('');
   const [savingsAmount, setSavingsAmount] = useState('');
+  const [savingsPercent, setSavingsPercent] = useState('0');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
 
   // Clean selections
@@ -93,6 +94,9 @@ export default function Installments({ members, installments, onAddInstallment, 
     e.preventDefault();
     const instAmt = parseFloat(amount) || 0;
     const savAmt = parseFloat(savingsAmount) || 0;
+    const pct = parseFloat(savingsPercent) || 0;
+    const totalDeposit = instAmt + savAmt;
+    const computedSavingsProfit = pct > 0 ? Math.round((totalDeposit * (pct / 100)) * 100) / 100 : 0;
 
     if (!memberId || (instAmt <= 0 && savAmt <= 0)) {
       showAlert('ভুল ইনপুট!', 'দয়া করে সঠিক সদস্য এবং অন্তত কিস্তি অথবা সঞ্চয় জমার পরিমাণ প্রবেশ করান!');
@@ -108,6 +112,8 @@ export default function Installments({ members, installments, onAddInstallment, 
       memberName: currentMember.name,
       amount: instAmt,
       savingsAmount: savAmt,
+      savingsPercent: pct,
+      profitAmount: computedSavingsProfit,
       date,
       type: currentMember.type
     };
@@ -122,6 +128,7 @@ export default function Installments({ members, installments, onAddInstallment, 
     setMemberId('');
     setAmount('');
     setSavingsAmount('');
+    setSavingsPercent('0');
     setDate(new Date().toISOString().split('T')[0]);
   };
 
@@ -317,8 +324,8 @@ export default function Installments({ members, installments, onAddInstallment, 
               <div className="grid grid-cols-12 gap-3.5 pt-1.5">
                 
                 {/* নিয়মিত সঞ্চয় জমা (Regular Deposit) - Col size 7/12 */}
-                <div className="col-span-7 relative pt-2">
-                  <label className="absolute top-0 left-3 bg-[#fcfdfd] px-1.5 text-[10px] font-bold text-emerald-600 z-10 rounded select-none">
+                <div className="col-span-12 sm:col-span-7 relative pt-2">
+                  <label className="absolute top-0 left-3 bg-[#fcfdfd] px-1.5 text-[10px] font-bold text-emerald-600 z-10 rounded select-none font-sans">
                     নিয়মিত সঞ্চয় কিস্তি
                   </label>
                   <div className="flex items-center bg-white border-2 border-emerald-500 rounded-2xl px-3 py-3 shadow-xs">
@@ -335,8 +342,8 @@ export default function Installments({ members, installments, onAddInstallment, 
                 </div>
 
                 {/* অতিরিক্ত সঞ্চয় জমা (Extra Deposit) - Col size 5/12 */}
-                <div className="col-span-5 relative pt-2">
-                  <label className="absolute top-0 left-3 bg-[#fcfdfd] px-1.5 text-[10px] font-bold text-slate-400 z-10 rounded select-none">
+                <div className="col-span-12 sm:col-span-5 relative pt-2">
+                  <label className="absolute top-0 left-3 bg-[#fcfdfd] px-1.5 text-[10px] font-bold text-slate-400 z-10 rounded select-none font-sans">
                     অতিরিক্ত জমা (ঐচ্ছিক)
                   </label>
                   <div className="flex items-center bg-white border border-slate-200 focus-within:border-emerald-500 rounded-2xl px-3 py-3 shadow-xs transition-all">
@@ -351,6 +358,51 @@ export default function Installments({ members, installments, onAddInstallment, 
                   </div>
                 </div>
               </div>
+
+              {/* শতকরা লাভ/লভ্যাংশ হার (%) - আলাদা % এর ঘর */}
+              <div className="relative pt-2 text-left">
+                <label className="absolute top-0 left-3 bg-[#fcfdfd] px-1.5 text-[10px] font-bold text-emerald-600 z-10 rounded select-none font-sans">
+                  মুনাফার শতকরা হার (%) (Profit Rate Percent)
+                </label>
+                <div className="flex items-center bg-white border border-slate-200 focus-within:border-emerald-500 rounded-2xl px-3.5 py-3 shadow-sm transition-all">
+                  <Percent className="h-4 w-4 text-slate-400 mr-2 shrink-0" />
+                  <input
+                    type="number"
+                    placeholder="যেমনঃ ১৫ (মুনাফার শতকরা লভ্যাংশ)"
+                    value={savingsPercent}
+                    onChange={(e) => setSavingsPercent(e.target.value)}
+                    className="w-full bg-transparent border-none outline-none text-sm font-bold text-slate-800 font-mono"
+                  />
+                </div>
+              </div>
+
+              {/* Dynamic calculations list */}
+              {(parseFloat(amount) > 0 || parseFloat(savingsAmount) > 0) && (
+                <div className="p-3.5 bg-emerald-50/70 border border-emerald-100 rounded-2xl text-[11px] text-emerald-950 leading-normal space-y-1.5 font-sans">
+                  <div className="flex justify-between border-b border-emerald-200/50 pb-1">
+                    <span>নিয়মিত সঞ্চয় কিস্তি:</span>
+                    <strong className="font-mono">{(parseFloat(amount) || 0)} ৳</strong>
+                  </div>
+                  <div className="flex justify-between border-b border-emerald-200/50 pb-1">
+                    <span>অতিরিক্ত আমানত:</span>
+                    <strong className="font-mono">{(parseFloat(savingsAmount) || 0)} ৳</strong>
+                  </div>
+                  <div className="flex justify-between border-b border-emerald-200/50 pb-1 font-semibold text-emerald-800">
+                    <span>মোট সংগৃহীত সঞ্চয়:</span>
+                    <strong className="font-mono">{(parseFloat(amount) || 0) + (parseFloat(savingsAmount) || 0)} ৳</strong>
+                  </div>
+                  <div className="flex justify-between border-b border-emerald-200/50 pb-1 text-slate-600">
+                    <span>মুনাফার শতকরা হার:</span>
+                    <strong className="font-mono">{(parseFloat(savingsPercent) || 0)} %</strong>
+                  </div>
+                  <div className="flex justify-between font-bold text-emerald-900">
+                    <span>সংগৃহীত সঞ্চয়ের মুনাফা/লভ্যাংশ:</span>
+                    <strong className="font-mono text-emerald-600">
+                      + {Math.round((((parseFloat(amount) || 0) + (parseFloat(savingsAmount) || 0)) * (parseFloat(savingsPercent) || 0) / 100) * 100) / 100} ৳
+                    </strong>
+                  </div>
+                </div>
+              )}
 
               {/* Submit button at the bottom */}
               <div className="pt-3">
@@ -420,7 +472,14 @@ export default function Installments({ members, installments, onAddInstallment, 
                         </span>
                       </td>
                       <td className="p-4 font-mono text-slate-600">{i.date}</td>
-                      <td className="p-4 font-mono text-emerald-600 font-bold text-sm">+{i.amount} ৳</td>
+                      <td className="p-4 font-mono text-emerald-600 font-bold text-sm">
+                        <div>+{i.amount + (i.savingsAmount || 0)} ৳</div>
+                        {i.savingsPercent !== undefined && i.savingsPercent > 0 && (
+                          <div className="text-[10px] text-teal-600 font-sans font-medium mt-0.5">
+                            মুনাফা: +{i.profitAmount || 0} ৳ ({i.savingsPercent}%)
+                          </div>
+                        )}
+                      </td>
                       <td className="p-4">
                         <div className="flex justify-center gap-1.5">
                           <button
@@ -555,6 +614,12 @@ export default function Installments({ members, installments, onAddInstallment, 
                       <td className="p-2 font-medium text-slate-600">২. অতিরিক্ত সঞ্চয় আমানত (Extra Detail)</td>
                       <td className="p-2 text-right font-mono font-bold">{(selectedReceipt.savingsAmount || 0)} ৳</td>
                     </tr>
+                    {selectedReceipt.savingsPercent !== undefined && selectedReceipt.savingsPercent > 0 && (
+                      <tr className="text-teal-700 bg-emerald-50/20">
+                        <td className="p-2 font-semibold text-teal-600">৩. অর্জিত সঞ্চয় মুনাফা ({selectedReceipt.savingsPercent}%)</td>
+                        <td className="p-2 text-right font-mono font-bold">+{selectedReceipt.profitAmount || 0} ৳</td>
+                      </tr>
+                    )}
                     <tr className="bg-emerald-500/5 text-slate-900 font-bold text-[11px] border-t-2 border-emerald-600/25">
                       <td className="p-2 text-emerald-800 font-extrabold">সর্বমোট আদায়কৃত (Net Amount)</td>
                       <td className="p-2 text-right font-mono font-extrabold text-emerald-700">

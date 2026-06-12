@@ -26,10 +26,16 @@ export const downloadPdf = async (elementId: string, filename: string, title?: s
           ctx = canvas.getContext('2d');
         }
         if (ctx) {
+          ctx.fillStyle = 'rgba(0, 0, 0, 0)'; // baseline
           ctx.fillStyle = colorMatch;
-          return ctx.fillStyle || 'rgb(16, 185, 129)';
+          const resolved = ctx.fillStyle;
+          if (resolved === 'rgba(0, 0, 0, 0)' || !resolved || resolved.includes('oklch') || resolved.includes('color(')) {
+            // Failed to parse or browser returned oklch/color string
+            return 'rgb(16, 185, 129)';
+          }
+          return resolved;
         }
-      } catch {
+      } catch (e) {
         // Fallback
       }
       return 'rgb(16, 185, 129)';
@@ -57,7 +63,10 @@ export const downloadPdf = async (elementId: string, filename: string, title?: s
       }
     }
     for (let i = 0; i < el.children.length; i++) {
-      sanitizeElementStyles(el.children[i] as HTMLElement);
+      const child = el.children[i];
+      if (child instanceof HTMLElement) {
+        sanitizeElementStyles(child);
+      }
     }
   };
 
@@ -66,8 +75,71 @@ export const downloadPdf = async (elementId: string, filename: string, title?: s
   const originalStyleSheets = Object.getOwnPropertyDescriptor(Document.prototype, 'styleSheets');
 
   let tempStyle: HTMLStyleElement | null = null;
+  const deactivatedNodes: (HTMLStyleElement | HTMLLinkElement)[] = [];
+  const deactivatedSheets: { sheet: StyleSheet; originalState: boolean }[] = [];
 
   try {
+    // 1. Gather and compile page styles into a single safe compiled stylesheet
+    let combinedCssText = '';
+    const styleSheetsList = Array.from(document.styleSheets);
+    for (const sheet of styleSheetsList) {
+      try {
+        if (sheet.disabled) continue;
+        const rules = sheet.cssRules || sheet.rules;
+        if (!rules) continue;
+        for (let i = 0; i < rules.length; i++) {
+          combinedCssText += rules[i].cssText + '\n';
+        }
+      } catch (e) {
+        // Safe cross-origin fallback
+      }
+    }
+
+    // 2. Temporarily disable all original stylesheet elements in the DOM
+    const rawStyleNodes = Array.from(document.querySelectorAll('style, link[rel="stylesheet"]')) as (HTMLStyleElement | HTMLLinkElement)[];
+    for (const node of rawStyleNodes) {
+      if (!node.disabled) {
+        try {
+          node.disabled = true;
+          deactivatedNodes.push(node);
+        } catch (e) {}
+      }
+    }
+
+    // Also disable stylesheet objects directly so html2canvas ignores them
+    for (const sheet of styleSheetsList) {
+      if (sheet && !sheet.disabled) {
+        try {
+          sheet.disabled = true;
+          deactivatedSheets.push({ sheet, originalState: false });
+        } catch (e) {}
+      }
+    }
+
+    // 3. Sanitize the entire global stylesheet text
+    const safeCssText = sanitizeColors(combinedCssText);
+
+    // Create the temporary safe style node
+    tempStyle = document.createElement('style');
+    tempStyle.id = 'html2pdf-safe-style';
+    tempStyle.textContent = safeCssText;
+    document.head.appendChild(tempStyle);
+
+    // Get the sheet reference
+    const safeSheet = tempStyle.sheet;
+
+    // Temporarily mock styleSheets inside document to return our beautiful parsed safeSheet
+    try {
+      Object.defineProperty(document, 'styleSheets', {
+        get() {
+          return safeSheet ? [safeSheet] : [];
+        },
+        configurable: true
+      });
+    } catch (e) {
+      console.warn("Could not redefine styleSheets properties, proceeding naturally:", e);
+    }
+
     // Clone and prepare offscreen container styled beautifully for A4 PDF download
     const container = document.createElement('div');
     container.className = "p-8 bg-white text-slate-800 font-sans";
@@ -146,46 +218,6 @@ export const downloadPdf = async (elementId: string, filename: string, title?: s
       return value;
     };
 
-    // Gather and compile page styles into a single safe compiled stylesheet
-    let combinedCssText = '';
-    const styleSheetsList = Array.from(document.styleSheets);
-    for (const sheet of styleSheetsList) {
-      try {
-        if (sheet.disabled) continue;
-        const rules = sheet.cssRules || sheet.rules;
-        if (!rules) continue;
-        for (let i = 0; i < rules.length; i++) {
-          combinedCssText += rules[i].cssText + '\n';
-        }
-      } catch (e) {
-        // Safe cross-origin fallback
-      }
-    }
-
-    // Sanitize the entire global stylesheet text
-    const safeCssText = sanitizeColors(combinedCssText);
-
-    // Create the temporary safe style node
-    tempStyle = document.createElement('style');
-    tempStyle.id = 'html2pdf-safe-style';
-    tempStyle.textContent = safeCssText;
-    document.head.appendChild(tempStyle);
-
-    // Get the sheet reference
-    const safeSheet = tempStyle.sheet;
-
-    // Temporarily mock styleSheets inside document to return our beautiful parsed safeSheet
-    try {
-      Object.defineProperty(document, 'styleSheets', {
-        get() {
-          return safeSheet ? [safeSheet] : [];
-        },
-        configurable: true
-      });
-    } catch (e) {
-      console.warn("Could not redefine styleSheets properties, proceeding naturally:", e);
-    }
-
     // Run PDF generation
     await html2pdf().from(container).set(opt).save();
     
@@ -195,12 +227,26 @@ export const downloadPdf = async (elementId: string, filename: string, title?: s
     console.error('PDF Generation Failed:', error);
     alert('পিডিএফ ডাউনলোড তৈরি করা সম্ভব হচ্ছে না, অনুগ্রহ করে আবার চেষ্টা করুন বা ব্রাউজারের প্রিন্ট ফিচার ব্যবহার করুন।');
   } finally {
-    // Clean up temporary styles
+    // 1. Restore original style/link nodes
+    for (const node of deactivatedNodes) {
+      try {
+        node.disabled = false;
+      } catch (e) {}
+    }
+
+    // 2. Erase disables on stylesheet objects
+    for (const item of deactivatedSheets) {
+      try {
+        item.sheet.disabled = item.originalState;
+      } catch (e) {}
+    }
+
+    // 3. Clean up temporary style block
     if (tempStyle && tempStyle.parentNode) {
       tempStyle.parentNode.removeChild(tempStyle);
     }
 
-    // Restore original prototype descriptors and getters
+    // 4. Restore original prototype descriptors and getters
     CSSStyleDeclaration.prototype.getPropertyValue = originalGetPropertyValue;
     if (originalStyleSheets) {
       try {

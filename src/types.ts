@@ -18,6 +18,8 @@ export type Installment = {
   memberName: string;
   amount: number;
   savingsAmount?: number;
+  savingsPercent?: number;
+  profitAmount?: number;
   date: string;
   type: 'daily' | 'weekly' | 'monthly';
 };
@@ -35,6 +37,7 @@ export type Loan = {
   interestPercent?: number;  // original interest profit percent (e.g., 10 for 10%)
   originalPrincipal?: number; // original principal amount without interest (e.g., 5000)
   profitAmount?: number;     // profit amount separately (e.g., 500)
+  profitRepaid?: number;     // accumulated profit repaid separately
 };
 
 export type TrashLog = {

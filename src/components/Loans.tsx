@@ -303,8 +303,16 @@ export default function Loans({ members, loans, onAddLoan, onRepayLoan, onDelete
       setRepayInstallmentNo(finalLabel);
       
       const remainingTotal = totalAmount - paidAmt;
-      setRepayPrincipalAmount(Math.min(singleAmt, remainingTotal).toString());
-      setRepayProfitAmount('0');
+      const originalPrincipal = selectedRepayLoan.originalPrincipal || Math.round(totalAmount / 1.1);
+      const totalProfit = selectedRepayLoan.profitAmount !== undefined ? selectedRepayLoan.profitAmount : (totalAmount - originalPrincipal);
+      const profitRatio = totalAmount > 0 ? (totalProfit / totalAmount) : 0.0909;
+      
+      const currentPayAmt = Math.min(singleAmt, remainingTotal);
+      const profitPart = Math.round(currentPayAmt * profitRatio);
+      const principalPart = currentPayAmt - profitPart;
+
+      setRepayPrincipalAmount(principalPart.toString());
+      setRepayProfitAmount(profitPart.toString());
       setRepayPenaltyAmount('0');
     } else {
       setRepayInstallmentNo('');
@@ -853,10 +861,20 @@ export default function Loans({ members, loans, onAddLoan, onRepayLoan, onDelete
               />
             </div>
 
-            <div className="text-xs text-slate-500 flex flex-wrap gap-4">
+            <div className="text-xs text-slate-500 flex flex-wrap items-center gap-x-4 gap-y-2 leading-relaxed">
               <div>মোট ঋণ বিতরণ: <span className="font-bold text-slate-800 font-mono">{loans.reduce((sum, item) => sum + item.principalAmount, 0)} ৳</span></div>
               <div>মোট আদায় ঋণ: <span className="font-bold text-emerald-600 font-mono">{loans.reduce((sum, item) => sum + item.repaidAmount, 0)} ৳</span></div>
+              <div className="bg-purple-50 text-purple-700 px-2 py-0.5 rounded border border-purple-100/80 flex items-center gap-1">
+                <span>আদায়কৃত মুনাফা (শতকরা লাভ):</span>
+                <span className="font-extrabold font-mono text-purple-900">{loans.reduce((sum, item) => sum + (item.profitRepaid || 0), 0)} ৳</span>
+              </div>
               <div>বকেয়া ঋণ: <span className="font-bold text-rose-500 font-mono">{loans.reduce((sum, item) => sum + (item.principalAmount - item.repaidAmount), 0)} ৳</span></div>
+              <div className="text-[10px] text-slate-400 bg-slate-100 px-2 py-0.5 rounded">
+                (সম্ভাব্য মোট লাভ: <span className="font-semibold font-mono text-slate-600">{loans.reduce((sum, item) => {
+                  const orig = item.originalPrincipal || Math.round(item.principalAmount / 1.1);
+                  return sum + (item.profitAmount !== undefined ? item.profitAmount : (item.principalAmount - orig));
+                }, 0)} ৳</span>)
+              </div>
             </div>
           </div>
         )}

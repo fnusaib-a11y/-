@@ -366,6 +366,12 @@ export default function RoleSelector({ members, onLogin, appConfig, onRequestPin
       <footer className="text-center text-[10px] text-slate-400 mt-8 max-w-xs leading-relaxed font-sans relative z-10">
         <p>সফটওয়্যার পরিচালনায়: <span className="font-semibold text-slate-300">{appConfig.adminName}</span></p>
         <p className="text-[9px] mt-0.5 text-slate-500">নিরাপত্তা স্তর: ২৫কে-বিট এসএসএল এনক্রিপ্টেড ডাটাবেজ</p>
+        <p className="text-[10px] text-slate-400 font-medium mt-1.5">
+          Powered by ~ Mr Pipilika Lab's
+        </p>
+        <p className="text-[9px] text-slate-500 font-mono">
+          fnusaib@gmail.com
+        </p>
       </footer>
 
       {showResetModal && (

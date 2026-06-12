@@ -84,9 +84,15 @@ export default function Reports({ members, installments, loans, role, ledger, on
 
   // Grand Cooperative Cash Box calculations (কেশে অবশিষ্ট খতিয়ান হিসাব)
   const totalSavingsSumOfCoop = installments.reduce((sum, item) => sum + item.amount + (item.savingsAmount || 0), 0);
-  const totalLoansPrincipalSumOfCoop = loans.reduce((sum, item) => sum + item.principalAmount, 0);
-  const totalLoansRepaidSumOfCoop = loans.reduce((sum, item) => sum + item.repaidAmount, 0);
-  const totalCashBalanceOfCoop = totalSavingsSumOfCoop + totalLoansRepaidSumOfCoop + customIncome + customSurplus - totalLoansPrincipalSumOfCoop - customExpense;
+  const totalLoansDisbursedPrincipalOfCoop = loans.reduce((sum, l) => sum + (l.originalPrincipal || (l.principalAmount - (l.profitAmount || 0))), 0);
+  const totalLoansRecoveredPrincipalOfCoop = loans.reduce((sum, l) => sum + l.repaidAmount, 0);
+  const totalLoansDuePrincipalOfCoop = totalLoansDisbursedPrincipalOfCoop - totalLoansRecoveredPrincipalOfCoop;
+
+  const totalSavingsPercentProfitOfCoop = installments.reduce((sum, item) => sum + (item.profitAmount || 0), 0);
+  const totalLoanPercentProfitOfCoop = loans.reduce((sum, item) => sum + (item.profitRepaid || 0), 0);
+  const totalPercentageProfitSumOfCoop = totalSavingsPercentProfitOfCoop + totalLoanPercentProfitOfCoop;
+
+  const totalCashBalanceOfCoop = totalSavingsSumOfCoop + totalLoansRecoveredPrincipalOfCoop + customIncome + customSurplus - totalLoansDisbursedPrincipalOfCoop - customExpense;
 
   // PRINT Trigger helper
   const handlePrintReport = (elementId: string, title: string) => {
@@ -198,7 +204,7 @@ export default function Reports({ members, installments, loans, role, ledger, on
             </div>
           </div>
 
-          <div id="summary-report-print" className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-white p-6 rounded-2xl border border-slate-100">
+          <div id="summary-report-print" className="grid grid-cols-1 md:grid-cols-3 gap-6 bg-white p-6 rounded-2xl border border-slate-100">
             {/* Columns 1: Members and Savings */}
             <div className="space-y-4">
               <h4 className="text-xs font-bold text-slate-400 tracking-wider">সদস্য ও সঞ্চয় সারসংক্ষেপ</h4>
@@ -216,8 +222,8 @@ export default function Reports({ members, installments, loans, role, ledger, on
                   <strong className="text-slate-500">{members.filter(m => m?.status === 'inactive').length} জন</strong>
                 </div>
                 <div className="flex justify-between py-2 border-b border-slate-100 text-xs text-slate-600">
-                  <span>মোট সঞ্চিত আমানত (জমা):</span>
-                  <strong className="text-emerald-600">{installments.reduce((sum, item) => sum + item.amount, 0)} ৳</strong>
+                  <span>মোট সঞ্চিত আমানত (আসল):</span>
+                  <strong className="text-emerald-600">{totalSavingsSumOfCoop} ৳</strong>
                 </div>
               </div>
             </div>
@@ -231,16 +237,39 @@ export default function Reports({ members, installments, loans, role, ledger, on
                   <strong className="text-slate-850">{loans.length} টি</strong>
                 </div>
                 <div className="flex justify-between py-2 border-b border-slate-100 text-xs text-slate-600">
-                  <span>মোট বিতরণকৃত ঋণের টাকা:</span>
-                  <strong className="text-slate-800">{loans.reduce((sum, item) => sum + item.principalAmount, 0)} ৳</strong>
+                  <span>মোট বিতরণকৃত লোন (আসল):</span>
+                  <strong className="text-slate-800">{totalLoansDisbursedPrincipalOfCoop} ৳</strong>
                 </div>
                 <div className="flex justify-between py-2 border-b border-slate-100 text-xs text-slate-600">
-                  <span>মোট আদায়কৃত ঋণের টাকা:</span>
-                  <strong className="text-emerald-600">{loans.reduce((sum, l) => sum + l.repaidAmount, 0)} ৳</strong>
+                  <span>মোট আদায়কৃত লোন (আসল):</span>
+                  <strong className="text-emerald-600">{totalLoansRecoveredPrincipalOfCoop} ৳</strong>
                 </div>
                 <div className="flex justify-between py-2 border-b border-slate-100 text-xs text-slate-600">
-                  <span>অবশিষ্ট বকেয়া ঋণের পরিমাণ:</span>
-                  <strong className="text-rose-600">{loans.reduce((sum, l) => sum + (l.principalAmount - l.repaidAmount), 0)} ৳</strong>
+                  <span>অবশিষ্ট বকেয়া লোন (আসল):</span>
+                  <strong className="text-rose-600">{totalLoansDuePrincipalOfCoop} ৳</strong>
+                </div>
+              </div>
+            </div>
+
+            {/* Column 3: Percent Profit Folder */}
+            <div className="space-y-4">
+              <h4 className="text-xs font-bold text-purple-400 tracking-wider">শতকরা লভ্যাংশ তহবিল সারসংক্ষেপ</h4>
+              <div className="space-y-2">
+                <div className="flex justify-between py-2 border-b border-slate-100 text-xs text-slate-600">
+                  <span>সঞ্চয়ের ওপর শতকরা লাভ:</span>
+                  <strong className="text-slate-800">{totalSavingsPercentProfitOfCoop} ৳</strong>
+                </div>
+                <div className="flex justify-between py-2 border-b border-slate-100 text-xs text-slate-600">
+                  <span>ঋণ কিস্তির শতকরা লাভ:</span>
+                  <strong className="text-purple-700">{totalLoanPercentProfitOfCoop} ৳</strong>
+                </div>
+                <div className="flex justify-between py-2 border-b border-slate-100 text-xs text-slate-600 font-bold text-purple-900 border-t pt-1">
+                  <span>শতকরা গচ্ছিত লভ্যাংশ:</span>
+                  <span className="text-purple-600">{totalPercentageProfitSumOfCoop} ৳</span>
+                </div>
+                <div className="flex justify-between py-2 text-xs text-slate-600 font-semibold text-emerald-800">
+                  <span>কেশে অবশিষ্ট (শতকরা বাদে):</span>
+                  <span className="text-emerald-600">{totalCashBalanceOfCoop} ৳</span>
                 </div>
               </div>
             </div>
@@ -585,8 +614,8 @@ export default function Reports({ members, installments, loans, role, ledger, on
                         <span className="font-mono text-emerald-400 font-bold">+{totalSavingsSumOfCoop} ৳</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-slate-400">মোট সংগৃহীত লোন কিস্তি ও লাভ ফেরত:</span>
-                        <span className="font-mono text-emerald-400 font-bold">+{totalLoansRepaidSumOfCoop} ৳</span>
+                        <span className="text-slate-400">মোট আদায়কৃত লোন আসল সংগ্রহ:</span>
+                        <span className="font-mono text-emerald-400 font-bold">+{totalLoansRecoveredPrincipalOfCoop} ৳</span>
                        </div>
                        <div className="flex justify-between">
                          <span className="text-slate-400">জরিমানা ও ভর্তি ফি বাবদ আদায়:</span>
@@ -602,7 +631,7 @@ export default function Reports({ members, installments, loans, role, ledger, on
                        <div className="text-[11px] font-bold text-rose-400 pb-1 border-b border-rose-950">বিতরণ ও খরচ খাত (-)</div>
                        <div className="flex justify-between">
                          <span className="text-slate-400">মোট বিতরিত ঋণ গ্রহীতাদের প্রদান:</span>
-                         <span className="font-mono text-rose-400 font-bold">-{totalLoansPrincipalSumOfCoop} ৳</span>
+                         <span className="font-mono text-rose-400 font-bold">-{totalLoansDisbursedPrincipalOfCoop} ৳</span>
                        </div>
                        <div className="flex justify-between">
                          <span className="text-slate-400">মোট অফিস পরিচালনা ব্যয়:</span>

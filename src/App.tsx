@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { getSavedData, saveAllData, ADMIN_PROFILE, INITIAL_MEMBERS, INITIAL_INSTALLMENTS, INITIAL_LOANS, INITIAL_NOTIFICATIONS } from './db';
 import { Member, Installment, Loan, TrashLog, AdminNotification, AppConfig, LedgerEntry, PinRequest, MonthlyExpense, CashVaultLog } from './types';
 // @ts-ignore
@@ -32,6 +33,9 @@ const toBengaliDigits = (num: number | string) => {
 };
 
 export default function App() {
+  const navigate = useNavigate();
+  const location = useLocation();
+
   // Load database state from client storage
   const [members, setMembers] = useState<Member[]>([]);
   const [installments, setInstallments] = useState<Installment[]>([]);
@@ -61,6 +65,12 @@ export default function App() {
   const [currentRole, setCurrentRole] = useState<'admin' | 'owner' | 'member' | null>(null);
   const [currentMemberId, setCurrentMemberId] = useState<string | undefined>(undefined);
   const [activeTab, setActiveTab] = useState<'dashboard' | 'members' | 'installments' | 'loans' | 'reports' | 'security' | 'diary'>('dashboard');
+  
+  const changeTab = (tab: typeof activeTab) => {
+    setActiveTab(tab);
+    navigate('/' + tab);
+  };
+
   const [darkMode, setDarkMode] = useState(false);
   const [showOverdueDetails, setShowOverdueDetails] = useState(false);
   const [showNotificationPanel, setShowNotificationPanel] = useState(false);
@@ -99,100 +109,95 @@ export default function App() {
     });
   };
 
-  // Synchronize history states with view tab changes to prevent back button from exiting APK unexpectedly
+  // Synchronize URL route changes with React state variables
+  useEffect(() => {
+    const path = location.pathname;
+
+    // 1. If not logged in, redirect to /login
+    if (!currentRole) {
+      if (path !== '/login') {
+        navigate('/login', { replace: true });
+      }
+      return;
+    }
+
+    // 2. If logged in but route is /login or /, redirect to /dashboard
+    if (path === '/login' || path === '/') {
+      navigate('/dashboard', { replace: true });
+      return;
+    }
+
+    // 3. Map path to activeTab
+    const tabName = path.substring(1) as any;
+
+    // Direct access validations based on Role
+    if (tabName === 'members' && currentRole === 'member') {
+      navigate('/dashboard', { replace: true });
+      return;
+    }
+    if (tabName === 'reports' && currentRole === 'member') {
+      navigate('/dashboard', { replace: true });
+      return;
+    }
+    if (tabName === 'diary' && currentRole !== 'admin') {
+      navigate('/dashboard', { replace: true });
+      return;
+    }
+    if (tabName === 'security' && currentRole !== 'admin') {
+      navigate('/dashboard', { replace: true });
+      return;
+    }
+
+    const validTabs = ['dashboard', 'members', 'installments', 'loans', 'reports', 'security', 'diary'];
+    if (validTabs.includes(tabName)) {
+      if (activeTab !== tabName) {
+        setActiveTab(tabName);
+      }
+    } else {
+      navigate('/dashboard', { replace: true });
+    }
+  }, [location.pathname, currentRole, navigate]);
+
+  // Handle native popstate (BackButton) for overlays or to prevent exit past Dashboard
   useEffect(() => {
     const handleBeforePopState = (event: PopStateEvent) => {
-      // If there's an open overlay modal or drawer, close it and prevent going back/exiting
+      // Close open UI overlays first on back actions
       if (showExitConfirmModal) {
         setShowExitConfirmModal(false);
-        // Resubmit history state so the user can back-click again
-        window.history.pushState({ role: currentRole, tab: activeTab, modal: activeModal }, '', currentRole ? `#${activeTab}` : '#login');
+        navigate('/' + activeTab);
         return;
       }
       if (activeModal) {
         setActiveModal(null);
-        // Resubmit history state so the user can back-click again
-        window.history.pushState({ role: currentRole, tab: activeTab, modal: null }, '', currentRole ? `#${activeTab}` : '#login');
+        navigate('/' + activeTab);
         return;
       }
       if (isDrawerResetOpen) {
         setIsDrawerResetOpen(false);
-        window.history.pushState({ role: currentRole, tab: activeTab, drawerReset: false }, '', currentRole ? `#${activeTab}` : '#login');
+        navigate('/' + activeTab);
         return;
       }
       if (isDrawerOpen) {
         setIsDrawerOpen(false);
-        window.history.pushState({ role: currentRole, tab: activeTab, drawer: false }, '', currentRole ? `#${activeTab}` : '#login');
+        navigate('/' + activeTab);
         return;
       }
 
-      // Handle standard back navigation
-      if (event.state) {
-        const state = event.state;
-        
-        // If logged in and the popped state targets no role (logout/login screen), intercept and prompt instead of logging out!
-        if (state.role === null && currentRole !== null) {
+      // If logged in and the target route would be /login or empty/root, intercept!
+      if (currentRole) {
+        const currentHash = window.location.hash;
+        if (!currentHash || currentHash === '#/login' || currentHash === '#/' || currentHash === '#') {
           setShowExitConfirmModal(true);
-          // Restore the history block immediately so the user can back-click again safely
-          window.history.pushState(
-            { role: currentRole, tab: activeTab, modal: activeModal }, 
-            '', 
-            currentRole ? `#${activeTab}` : '#login'
-          );
-          return;
-        }
-
-        if (state.role !== currentRole) {
-          setCurrentRole(state.role);
-        }
-        if (state.tab && state.tab !== activeTab) {
-          setActiveTab(state.tab);
-        }
-      } else {
-        // Safe default when no state exists (e.g. initial URL)
-        if (currentRole) {
-          if (activeTab !== 'dashboard') {
-            // First jump back to dashboard before prompting
-            setActiveTab('dashboard');
-            window.history.pushState(
-              { role: currentRole, tab: 'dashboard', modal: null }, 
-              '', 
-              `#dashboard`
-            );
-          } else {
-            // Trigger exit model if already on dashboard to prevent exit
-            setShowExitConfirmModal(true);
-            window.history.pushState(
-              { role: currentRole, tab: 'dashboard', modal: null }, 
-              '', 
-              `#dashboard`
-            );
-          }
+          navigate('/dashboard');
         }
       }
     };
 
     window.addEventListener('popstate', handleBeforePopState);
-
-    // Push state to active history stack
-    const currentState = window.history.state;
-    const shouldPush = !currentState || 
-                       currentState.role !== currentRole || 
-                       currentState.tab !== activeTab ||
-                       currentState.modal !== activeModal;
-                       
-    if (shouldPush) {
-      window.history.pushState(
-        { role: currentRole, tab: activeTab, modal: activeModal }, 
-        '', 
-        currentRole ? `#${activeTab}` : '#login'
-      );
-    }
-
     return () => {
       window.removeEventListener('popstate', handleBeforePopState);
     };
-  }, [activeTab, currentRole, activeModal, isDrawerOpen, isDrawerResetOpen, showExitConfirmModal]);
+  }, [activeTab, currentRole, activeModal, isDrawerOpen, isDrawerResetOpen, showExitConfirmModal, navigate]);
 
   // Synchronize Firestore collections with app state
   useEffect(() => {
@@ -245,7 +250,7 @@ export default function App() {
       }
     }, (err) => {
       console.warn('Firestore members read issue:', err);
-      handleFirestoreError(err, OperationType.GET, 'members');
+      handleFirestoreError(err, OperationType.GET, 'members', false);
     });
 
     // 2. Listen to installments
@@ -270,7 +275,7 @@ export default function App() {
       }
     }, (err) => {
       console.warn('Firestore installments read issue:', err);
-      handleFirestoreError(err, OperationType.GET, 'installments');
+      handleFirestoreError(err, OperationType.GET, 'installments', false);
     });
 
     // 3. Listen to loans
@@ -295,7 +300,7 @@ export default function App() {
       }
     }, (err) => {
       console.warn('Firestore loans read issue:', err);
-      handleFirestoreError(err, OperationType.GET, 'loans');
+      handleFirestoreError(err, OperationType.GET, 'loans', false);
     });
 
     // 4. Listen to trash
@@ -307,7 +312,7 @@ export default function App() {
       setTrash(list);
     }, (err) => {
       console.warn('Firestore trash read issue:', err);
-      handleFirestoreError(err, OperationType.GET, 'trash');
+      handleFirestoreError(err, OperationType.GET, 'trash', false);
     });
 
     // 5. Listen to notifications
@@ -334,7 +339,7 @@ export default function App() {
       }
     }, (err) => {
       console.warn('Firestore notifications read issue:', err);
-      handleFirestoreError(err, OperationType.GET, 'notifications');
+      handleFirestoreError(err, OperationType.GET, 'notifications', false);
     });
 
     // 6. Listen to app configuration
@@ -511,14 +516,14 @@ export default function App() {
   const handleLogin = (role: 'admin' | 'owner' | 'member', memberId?: string) => {
     setCurrentRole(role);
     setCurrentMemberId(memberId);
-    setActiveTab('dashboard');
+    navigate('/dashboard');
   };
 
   // Handle Logout Event
   const handleLogout = () => {
     setCurrentRole(null);
     setCurrentMemberId(undefined);
-    setActiveTab('dashboard');
+    navigate('/login');
   };
 
   // Synchronize with Central Server manually
@@ -890,10 +895,16 @@ export default function App() {
 
     // Repaid amount keeps track of actual principal repaid
     const afterPaid = targetLoan.repaidAmount + (principalPaid ?? repayAmount);
+    const afterProfitPaid = (targetLoan.profitRepaid || 0) + (profitPaid ?? 0);
+    
+    // Loan is paid when total repaid principal reaches original loan value (excluding interest)
+    const loanPrincipalLimit = targetLoan.originalPrincipal || (targetLoan.principalAmount - (targetLoan.profitAmount || 0));
+
     const updatedLoan: Loan = {
       ...targetLoan,
       repaidAmount: afterPaid,
-      status: afterPaid >= targetLoan.principalAmount ? 'paid' : targetLoan.status
+      profitRepaid: afterProfitPaid,
+      status: afterPaid >= loanPrincipalLimit ? 'paid' : targetLoan.status
     };
 
     try {
@@ -1163,28 +1174,43 @@ export default function App() {
   // Dashboard calculation indicators (Requirement 9 / হিসাব Dashboard)
   const totalMemberCount = members.length;
   const activeMemberCount = members.filter(m => m.status === 'active').length;
-  const totalSavingsSum = installments.reduce((sum, item) => sum + item.amount, 0);
-  const totalLoansPrincipalSum = loans.reduce((sum, item) => sum + item.principalAmount, 0);
-  const totalLoansRepaidSum = loans.reduce((sum, item) => sum + item.repaidAmount, 0);
-  const totalLoansDueSum = totalLoansPrincipalSum - totalLoansRepaidSum;
+
+  // 1. Total savings deposited = regular installments + extra savings (Excluding interest percentages completely!)
+  const totalSavingsSum = installments.reduce((sum, item) => sum + item.amount + (item.savingsAmount || 0), 0);
+
+  // 2. Total loan principal disbursed (subtract core principal from money container, not principalAmount which includes interest profit)
+  const totalLoansDisbursedPrincipal = loans.reduce((sum, l) => sum + (l.originalPrincipal || (l.principalAmount - (l.profitAmount || 0))), 0);
+
+  // 3. Total principal repaid (recovered principal)
+  const totalLoansRecoveredPrincipal = loans.reduce((sum, l) => sum + l.repaidAmount, 0);
+
+  // 4. Total outstanding principal loan due
+  const totalLoansDueSum = totalLoansDisbursedPrincipal - totalLoansRecoveredPrincipal;
+
+  // 5. Total Percentage Profits Vault (আলাদা মুনাফা ও লভ্যাংশ তহবিল - completely separate folder!)
+  const totalSavingsPercentProfit = installments.reduce((sum, item) => sum + (item.profitAmount || 0), 0);
+  const totalLoanPercentProfit = loans.reduce((sum, item) => sum + (item.profitRepaid || 0), 0);
+  const totalPercentageProfitSum = totalSavingsPercentProfit + totalLoanPercentProfit;
 
   const customIncomeSum = ledger ? ledger.filter(l => l.type === 'income').reduce((sum, item) => sum + item.amount, 0) : 0;
   const customExpenseSum = ledger ? ledger.filter(l => l.type === 'expense').reduce((sum, item) => sum + item.amount, 0) : 0;
   const customSurplusSum = ledger ? ledger.filter(l => l.type === 'surplus').reduce((sum, item) => sum + item.amount, 0) : 0;
-  const totalCashBalanceOfCoop = totalSavingsSum + totalLoansRepaidSum + customIncomeSum + customSurplusSum - totalLoansPrincipalSum - customExpenseSum;
+
+  // Net Cash Balance does NOT include the separate Percentage profits folder!
+  const totalCashBalanceOfCoop = totalSavingsSum + totalLoansRecoveredPrincipal + customIncomeSum + customSurplusSum - totalLoansDisbursedPrincipal - customExpenseSum;
 
   const todayDateStr = new Date().toISOString().split('T')[0];
   const todayCollectionsSum = installments
     .filter(i => i.date === todayDateStr)
-    .reduce((sum, item) => sum + item.amount, 0);
+    .reduce((sum, item) => sum + item.amount + (item.savingsAmount || 0), 0);
 
   // User-specific member dashboard logic
   const activeMember = members.find(m => m.id === currentMemberId);
   const memberPersonalInstallments = installments.filter(i => i.memberId === currentMemberId);
-  const memberPersonalSavingsTotal = memberPersonalInstallments.reduce((sum, item) => sum + item.amount, 0);
+  const memberPersonalSavingsTotal = memberPersonalInstallments.reduce((sum, item) => sum + item.amount + (item.savingsAmount || 0), 0);
   
   const memberPersonalLoans = loans.filter(l => l.memberId === currentMemberId);
-  const memberPersonalLoansTotal = memberPersonalLoans.reduce((sum, item) => sum + item.principalAmount, 0);
+  const memberPersonalLoansTotal = memberPersonalLoans.reduce((sum, item) => sum + (item.originalPrincipal || (item.principalAmount - (item.profitAmount || 0))), 0);
   const memberPersonalRepaidTotal = memberPersonalLoans.reduce((sum, item) => sum + item.repaidAmount, 0);
   const memberPersonalDueTotal = memberPersonalLoansTotal - memberPersonalRepaidTotal;
   const memberPersonalOriginalPrincipal = memberPersonalLoans.reduce((sum, item) => sum + (item.originalPrincipal || Math.round(item.principalAmount / 1.1)), 0);
@@ -1192,8 +1218,6 @@ export default function App() {
 
   // Unread alerts count
   const unreadNotifsCount = notifications.filter(n => !n.read).length;
-
-
 
   const memberPayRatio = memberPersonalLoansTotal > 0 ? Math.min(100, Math.round((memberPersonalRepaidTotal / memberPersonalLoansTotal) * 100)) : 0;
   const memberRemRatio = 100 - memberPayRatio;
@@ -1344,243 +1368,169 @@ export default function App() {
         </div>
       </header>
 
-      {/* Main app Grid Body */}
-      <div className="flex-1 flex flex-col md:flex-row">
+    {/* Main app Grid Body */}
+    <div className="flex-1 flex flex-col md:flex-row">
+      
+      {/* SIDE BAR NAVIGATION SECTION (Hidden on mobile) */}
+      <aside className={`hidden md:block w-64 shrink-0 p-4 space-y-1.5 transition-all md:min-h-[calc(100vh-64px)] ${themeTheme.sidebarBg}`}>
         
-        {/* SIDE BAR NAVIGATION SECTION (Hidden on mobile) */}
-        <aside className={`hidden md:block w-64 shrink-0 p-4 space-y-1.5 transition-all md:min-h-[calc(100vh-64px)] ${themeTheme.sidebarBg}`}>
-          
-          {/* User profile Identity Badge */}
-          <div className="p-4 rounded-2xl mb-4 border border-white/20 bg-white/10 shadow-lg backdrop-blur-xs">
-            <div className="flex items-center gap-2.5">
-              <div className="w-11 h-11 rounded-full bg-slate-905 bg-slate-900 border border-white/20 overflow-hidden select-none shrink-0 p-0.5 flex items-center justify-center shadow-lg transition-transform hover:rotate-3 duration-300">
-                <div className="w-full h-full rounded-full bg-white overflow-hidden flex items-center justify-center">
-                  <img 
-                    src={associationLogo} 
-                    alt="ক্ষুদ্র সঞ্চয় সমিতি" 
-                    className="w-full h-full object-cover rounded-full scale-[1.08]"
-                    referrerPolicy="no-referrer"
-                  />
-                </div>
-              </div>
-              <div className="text-left font-sans text-xs overflow-hidden">
-                {currentRole === 'admin' && (
-                  <>
-                    <strong className="block text-white text-sm font-bold truncate">{ADMIN_PROFILE.name}</strong>
-                    <span className="text-emerald-100 font-semibold">{themeTheme.sidebarSubText || 'পরিচালক ও এডমিন'}</span>
-                  </>
-                )}
-                {currentRole === 'owner' && (
-                  <>
-                    <strong className="block text-white text-sm font-bold truncate">সম্মানিত অংশীদার</strong>
-                    <span className="text-blue-100 font-semibold">{themeTheme.sidebarSubText || 'অংশীদার ও মালিক'}</span>
-                  </>
-                )}
-                {currentRole === 'member' && activeMember && (
-                  <>
-                    <strong className="block text-white text-xs font-bold truncate">{activeMember.name}</strong>
-                    <span className="text-red-105 text-red-100 font-semibold font-mono text-[10px] block truncate">ID: {activeMember.id}</span>
-                  </>
-                )}
+        {/* User profile Identity Badge */}
+        <div className="p-4 rounded-2xl mb-4 border border-white/20 bg-white/10 shadow-lg backdrop-blur-xs">
+          <div className="flex items-center gap-2.5">
+            <div className="w-11 h-11 rounded-full bg-slate-900 border border-white/20 overflow-hidden select-none shrink-0 p-0.5 flex items-center justify-center shadow-lg transition-transform hover:rotate-3 duration-300">
+              <div className="w-full h-full rounded-full bg-white overflow-hidden flex items-center justify-center">
+                <img 
+                  src={associationLogo} 
+                  alt="ক্ষুদ্র সঞ্চয় সমিতি" 
+                  className="w-full h-full object-cover rounded-full scale-[1.08]"
+                  referrerPolicy="no-referrer"
+                />
               </div>
             </div>
+            <div className="text-left font-sans text-xs overflow-hidden">
+              {currentRole === 'admin' && (
+                <>
+                  <strong className="block text-white text-sm font-bold truncate">{ADMIN_PROFILE.name}</strong>
+                  <span className="text-emerald-100 font-semibold">{themeTheme.sidebarSubText || 'পরিচালক ও এডমিন'}</span>
+                </>
+              )}
+              {currentRole === 'owner' && (
+                <>
+                  <strong className="block text-white text-sm font-bold truncate">সম্মানিত অংশীদার</strong>
+                  <span className="text-blue-100 font-semibold">{themeTheme.sidebarSubText || 'অংশীদার ও মালিক'}</span>
+                </>
+              )}
+              {currentRole === 'member' && activeMember && (
+                <>
+                  <strong className="block text-white text-xs font-bold truncate">{activeMember.name}</strong>
+                  <span className="text-red-100 font-semibold font-mono text-[10px] block truncate">ID: {activeMember.id}</span>
+                </>
+              )}
+            </div>
           </div>
+        </div>
 
-          <h3 className="px-3 text-[10px] font-bold text-white/50 uppercase tracking-widest text-left mb-2.5">মেনু বিভাগ</h3>
+        <h3 className="px-3 text-[10px] font-bold text-white/50 uppercase tracking-widest text-left mb-2.5">মেনু বিভাগ</h3>
 
-          {/* Switch tabs menu */}
-          <div className="space-y-1.5">
+        {/* Switch tabs menu */}
+        <div className="space-y-1.5">
+          <button
+            onClick={() => changeTab('dashboard')}
+            className={`w-full py-2.5 px-3 rounded-xl text-xs font-semibold text-left flex items-center gap-2 cursor-pointer transition-all ${
+              activeTab === 'dashboard' ? themeTheme.navActive : `${themeTheme.navInactive} text-white/80 hover:bg-white/10 hover:text-white`
+            }`}
+          >
+            <Users className="h-4 w-4 shrink-0" />
+            হিসাব ড্যাশবোর্ড
+          </button>
+
+          {currentRole !== 'member' && (
             <button
-              onClick={() => setActiveTab('dashboard')}
+              onClick={() => changeTab('members')}
               className={`w-full py-2.5 px-3 rounded-xl text-xs font-semibold text-left flex items-center gap-2 cursor-pointer transition-all ${
-                activeTab === 'dashboard' ? themeTheme.navActive : `${themeTheme.navInactive} text-white/80 hover:bg-white/10 hover:text-white`
+                activeTab === 'members' ? themeTheme.navActive : `${themeTheme.navInactive} text-white/80 hover:bg-white/10 hover:text-white`
               }`}
             >
-              <Users className="h-4 w-4 shrink-0" />
-              হিসাব ড্যাশবোর্ড
+              <User className="h-4 w-4 shrink-0" />
+              সদস্য ব্যবস্থাপনা
             </button>
+          )}
 
-            {currentRole !== 'member' && (
-              <button
-                onClick={() => setActiveTab('members')}
-                className={`w-full py-2.5 px-3 rounded-xl text-xs font-semibold text-left flex items-center gap-2 cursor-pointer transition-all ${
-                  activeTab === 'members' ? themeTheme.navActive : `${themeTheme.navInactive} text-white/80 hover:bg-white/10 hover:text-white`
-                }`}
-              >
-                <User className="h-4 w-4 shrink-0" />
-                সদস্য ব্যবস্থাপনা
-              </button>
-            )}
+          <button
+            onClick={() => changeTab('installments')}
+            className={`w-full py-2.5 px-3 rounded-xl text-xs font-semibold text-left flex items-center gap-2 cursor-pointer transition-all ${
+              activeTab === 'installments' ? themeTheme.navActive : `${themeTheme.navInactive} text-white/80 hover:bg-white/10 hover:text-white`
+            }`}
+          >
+            <Wallet className="h-4 w-4 shrink-0" />
+            {currentRole === 'member' ? 'নিজের সঞ্চয় স্লিপ' : 'সঞ্চয় ও কিস্তি আদায়'}
+          </button>
 
+          <button
+            onClick={() => changeTab('loans')}
+            className={`w-full py-2.5 px-3 rounded-xl text-xs font-semibold text-left flex items-center gap-2 cursor-pointer transition-all ${
+              activeTab === 'loans' ? themeTheme.navActive : `${themeTheme.navInactive} text-white/80 hover:bg-white/10 hover:text-white`
+            }`}
+          >
+            <HandCoins className="h-4 w-4 shrink-0" />
+            {currentRole === 'member' ? 'নিজের লোন ও ফেরত' : 'ঋণ খাতা ও বিতরণ'}
+          </button>
+
+          {currentRole !== 'member' && (
             <button
-              onClick={() => setActiveTab('installments')}
+              onClick={() => changeTab('reports')}
               className={`w-full py-2.5 px-3 rounded-xl text-xs font-semibold text-left flex items-center gap-2 cursor-pointer transition-all ${
-                activeTab === 'installments' ? themeTheme.navActive : `${themeTheme.navInactive} text-white/80 hover:bg-white/10 hover:text-white`
+                activeTab === 'reports' ? themeTheme.navActive : `${themeTheme.navInactive} text-white/80 hover:bg-white/10 hover:text-white`
               }`}
             >
-              <Wallet className="h-4 w-4 shrink-0" />
-              {currentRole === 'member' ? 'নিজের সঞ্চয় স্লিপ' : 'সঞ্চয় ও কিস্তি আদায়'}
+              <FileBarChart className="h-4 w-4 shrink-0" />
+              রিপোর্ট ও লাভ ক্ষতি
             </button>
+          )}
 
+          {currentRole === 'admin' && (
             <button
-              onClick={() => setActiveTab('loans')}
+              onClick={() => changeTab('diary')}
               className={`w-full py-2.5 px-3 rounded-xl text-xs font-semibold text-left flex items-center gap-2 cursor-pointer transition-all ${
-                activeTab === 'loans' ? themeTheme.navActive : `${themeTheme.navInactive} text-white/80 hover:bg-white/10 hover:text-white`
+                activeTab === 'diary' ? themeTheme.navActive : `${themeTheme.navInactive} text-white/80 hover:bg-white/10 hover:text-white`
               }`}
             >
-              <HandCoins className="h-4 w-4 shrink-0" />
-              {currentRole === 'member' ? 'নিজের লোন ও ফেরত' : 'ঋণ খাতা ও বিতরণ'}
+              <BookOpen className="h-4 w-4 shrink-0" />
+              কেশের আলমারি ও খরচ ডায়েরি
             </button>
+          )}
 
-            {currentRole !== 'member' && (
-              <button
-                onClick={() => setActiveTab('reports')}
-                className={`w-full py-2.5 px-3 rounded-xl text-xs font-semibold text-left flex items-center gap-2 cursor-pointer transition-all ${
-                  activeTab === 'reports' ? themeTheme.navActive : `${themeTheme.navInactive} text-white/80 hover:bg-white/10 hover:text-white`
-                }`}
-              >
-                <FileBarChart className="h-4 w-4 shrink-0" />
-                রিপোর্ট ও লাভ ক্ষতি
-              </button>
-            )}
+          {currentRole === 'admin' && (
+            <button
+              onClick={() => changeTab('security')}
+              className={`w-full py-2.5 px-3 rounded-xl text-xs font-semibold text-left flex items-center gap-2 cursor-pointer transition-all ${
+                activeTab === 'security' ? themeTheme.navActive : `${themeTheme.navInactive} text-white/80 hover:bg-white/10 hover:text-white`
+              }`}
+            >
+              <Shield className="h-4 w-4 shrink-0" />
+              ডাটা নিরাপত্তা ও রিস্টোর
+            </button>
+          )}
+        </div>
+      </aside>
 
-            {currentRole === 'admin' && (
-              <button
-                onClick={() => setActiveTab('diary')}
-                className={`w-full py-2.5 px-3 rounded-xl text-xs font-semibold text-left flex items-center gap-2 cursor-pointer transition-all ${
-                  activeTab === 'diary' ? themeTheme.navActive : `${themeTheme.navInactive} text-white/80 hover:bg-white/10 hover:text-white`
-                }`}
-              >
-                <BookOpen className="h-4 w-4 shrink-0" />
-                কেশের আলমারি ও খরচ ডায়েরি
-              </button>
-            )}
-
-            {currentRole === 'admin' && (
-              <button
-                onClick={() => setActiveTab('security')}
-                className={`w-full py-2.5 px-3 rounded-xl text-xs font-semibold text-left flex items-center gap-2 cursor-pointer transition-all ${
-                  activeTab === 'security' ? themeTheme.navActive : `${themeTheme.navInactive} text-white/80 hover:bg-white/10 hover:text-white`
-                }`}
-              >
-                <Shield className="h-4 w-4 shrink-0" />
-                ডাটা নিরাপত্তা ও রিস্টোর
-              </button>
-            )}
-          </div>
-        </aside>
-
-        {/* WORKSPACE DETAILED WRAPPER SCREEN */}
-        <main className="flex-1 p-4 md:p-8 pb-24 md:pb-8 space-y-6 overflow-y-auto">
-          
-          {/* TAB 1: DYNAMIC ROLES WORKSPACE INTERACTIVE DASHBOARD */}
-          {activeTab === 'dashboard' && (
-            <div className="space-y-6">
-              
-              {/* Top Hero Card branding block with role contextual gradient */}
-              <div className={`p-6 md:p-8 text-white rounded-3xl text-left bg-gradient-to-br shadow-md ${themeTheme.heroGrad} ${themeTheme.shadowColor} flex flex-col md:flex-row justify-between items-start md:items-center gap-6`}>
-                <div className="space-y-2 max-w-lg">
-                  <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-white/10 rounded-full text-xs font-semibold backdrop-blur-md">
-                    <CheckCircle className="h-3.5 w-3.5" />
-                    {currentRole === 'admin' && `এডমিন মোড সক্রিয় — ${ADMIN_PROFILE.name}`}
-                    {currentRole === 'owner' && 'পর্যবেক্ষণ মোড সক্রিয় — সম্মানিত শেয়ার হোল্ডার'}
-                    {currentRole === 'member' && activeMember && `সদস্য ডায়েরি সক্রিয় — ${activeMember.name}`}
-                  </div>
-                  <h2 className="text-xl md:text-2xl font-bold font-sans">
-                    {currentRole === 'member' && activeMember ? `স্বাগতম, ${activeMember.name}` : currentRole === 'owner' ? `শুভ কামনা, পরিচালনায় সম্মানিত শেয়ার হোল্ডার` : `শুভ কামনা, পরিচালনায় ${ADMIN_PROFILE.name}`}
-                  </h2>
-                  <p className="text-[11px] md:text-xs text-white/80 leading-relaxed font-sans">
-                    যাত্রা শুরু হোক আকাশ ছোয়ার স্বপ্ন নিয়ে
-                  </p>
+      {/* WORKSPACE DETAILED WRAPPER SCREEN */}
+      <main className="flex-1 p-4 md:p-8 pb-24 md:pb-8 space-y-6 overflow-y-auto">
+        
+        {/* TAB 1: DYNAMIC ROLES WORKSPACE INTERACTIVE DASHBOARD */}
+        {activeTab === 'dashboard' && (
+          <div className="space-y-6">
+            
+            {/* Top Hero Card branding block with role contextual gradient */}
+            <div className={`p-6 md:p-8 text-white rounded-3xl text-left bg-gradient-to-br shadow-md ${themeTheme.heroGrad} ${themeTheme.shadowColor} flex flex-col md:flex-row justify-between items-start md:items-center gap-6`}>
+              <div className="space-y-2 max-w-lg">
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-white/10 rounded-full text-xs font-semibold backdrop-blur-md">
+                  <CheckCircle className="h-3.5 w-3.5" />
+                  {currentRole === 'admin' && `এডমিন মোড সক্রিয় — ${ADMIN_PROFILE.name}`}
+                  {currentRole === 'owner' && 'পর্যবেক্ষণ মোড সক্রিয় — সম্মানিত শেয়ার হোল্ডার'}
+                  {currentRole === 'member' && activeMember && `সদস্য ডায়েরি সক্রিয় — ${activeMember.name}`}
                 </div>
-
-                {/* Director details */}
-                <div className="text-left md:text-right text-xs shrink-0 self-end md:self-auto border-t md:border-t-0 p-3 md:p-0 border-white/10 w-full md:w-auto">
-                  <span className="text-[10px] text-white/50 block font-mono">
-                    {currentRole === 'admin' ? 'অফিস ব্যবস্থাপক:' : currentRole === 'owner' ? 'সম্মানিত অংশীদার:' : 'সমিতি সদস্য:'}
-                  </span>
-                  <strong className="text-sm font-sans block">
-                    {currentRole === 'admin' ? ADMIN_PROFILE.name : currentRole === 'owner' ? 'সম্মানিত শেয়ার হোল্ডার' : activeMember?.name || 'পরিচিতিহীন'}
-                  </strong>
-                  <span className="text-[10px] text-emerald-250 italic bg-white/10 px-1.5 py-0.5 rounded mt-1 inline-block">চলমান অর্থবছর ২০২৬</span>
-                </div>
+                <h2 className="text-xl md:text-2xl font-bold font-sans">
+                  {currentRole === 'member' && activeMember ? `স্বাগতম, ${activeMember.name}` : currentRole === 'owner' ? `শুভ কামনা, পরিচালনায় সম্মানিত শেয়ার হোল্ডার` : `শুভ কামনা, পরিচালনায় ${ADMIN_PROFILE.name}`}
+                </h2>
+                <p className="text-[11px] md:text-xs text-white/80 leading-relaxed font-sans">
+                  যাত্রা শুরু হোক আকাশ ছোয়ার স্বপ্ন নিয়ে
+                </p>
               </div>
 
-              {/* Overdue Installment Alert Banner (Requirement 13) */}
-              {currentRole !== 'member' && overdueMembersList.length > 0 && (
-                <div id="overdue-alerts-banner" className="bg-rose-50 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-900 rounded-3xl p-5 text-left space-y-4 shadow-sm animate-fadeIn">
-                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-                    <div className="flex items-start gap-3">
-                      <div className="p-2 bg-rose-100 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 rounded-2xl shrink-0">
-                        <AlertTriangle className="h-5 w-5" />
-                      </div>
-                      <div>
-                        <h3 className="text-sm font-bold text-rose-800 dark:text-rose-300">🚨 বকেয়া কিস্তি আদায় নোটিফিকেশন</h3>
-                        <p className="text-xs text-rose-600/80 dark:text-rose-450 mt-1 font-sans">
-                          সরাসরি ডাটাবেজ থেকে চিহ্নিত: <strong className="font-mono">{toBengaliDigits(overdueMembersList.length)} জন</strong> সক্রিয় সদস্যের কিস্তি প্রদানের সময় পার হয়ে গেছে কিন্তু এখনো কোনো কিস্তি দেননি!
-                        </p>
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setShowOverdueDetails(!showOverdueDetails)}
-                      className="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-705 text-white dark:bg-rose-900 dark:hover:bg-rose-850 rounded-xl text-xs font-bold font-sans cursor-pointer transition-colors shadow-sm shrink-0"
-                    >
-                      {showOverdueDetails ? 'তালিকা লুকান' : 'বকেয়া তালিকা দেখুন'}
-                    </button>
-                  </div>
+              {/* Director details */}
+              <div className="text-left md:text-right text-xs shrink-0 self-end md:self-auto border-t md:border-t-0 p-3 md:p-0 border-white/10 w-full md:w-auto">
+                <span className="text-[10px] text-white/50 block font-mono">
+                  {currentRole === 'admin' ? 'অফিস ব্যবস্থাপক:' : currentRole === 'owner' ? 'সম্মানিত অংশীদার:' : 'সমিতি সদস্য:'}
+                </span>
+                <strong className="text-sm font-sans block">
+                  {currentRole === 'admin' ? ADMIN_PROFILE.name : currentRole === 'owner' ? 'সম্মানিত শেয়ার হোল্ডার' : activeMember?.name || 'পরিচিতিহীন'}
+                </strong>
+                <span className="text-[10px] text-emerald-250 italic bg-white/10 px-1.5 py-0.5 rounded mt-1 inline-block">চলমান অর্থবছর ২০২৬</span>
+              </div>
+            </div>
 
-                  {showOverdueDetails && (
-                    <div className="border-t border-rose-200/50 dark:border-rose-900/40 pt-4 overflow-hidden">
-                      <div className="overflow-x-auto rounded-xl">
-                        <table className="w-full text-xs text-left text-slate-705 dark:text-slate-300">
-                          <thead>
-                            <tr className="bg-rose-100/40 dark:bg-rose-950/20 text-rose-800 dark:text-rose-300 font-bold border-b border-rose-200/50">
-                              <th className="p-2.5">সদস্যের নাম ও আইডি</th>
-                              <th className="p-2.5">মোবাইল</th>
-                              <th className="p-2.5 text-center">কিস্তির ধরণ</th>
-                              <th className="p-2.5 text-right">শেষ পরিশোধ</th>
-                              <th className="p-2.5 text-right">বকেয়া সময়</th>
-                              <th className="p-2.5 text-center">যোগাযোগ</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-rose-200/20 dark:divide-rose-900/25">
-                            {overdueMembersList.map((item, idx) => (
-                              <tr key={idx} className="hover:bg-rose-100/20 dark:hover:bg-rose-950/10">
-                                <td className="p-2.5">
-                                  <span className="font-semibold block">{item.member.name}</span>
-                                  <span className="text-[10px] text-slate-400 font-mono">ID: {item.member.id}</span>
-                                </td>
-                                <td className="p-2.5 font-mono">{item.member.phone}</td>
-                                <td className="p-2.5 text-center">
-                                  <span className="px-1.5 py-0.5 bg-rose-150 dark:bg-rose-950 text-rose-800 dark:text-rose-300 rounded text-[9.5px] font-bold">
-                                    {item.member.type === 'daily' ? 'দৈনিক' : item.member.type === 'weekly' ? 'সাপ্তাহিক' : 'মাসিক'}
-                                  </span>
-                                </td>
-                                <td className="p-2.5 text-right font-mono text-slate-500">{item.lastPaidDate}</td>
-                                <td className="p-2.5 text-right font-semibold text-rose-600 font-sans">
-                                  {toBengaliDigits(item.days)} দিন পার
-                                </td>
-                                <td className="p-2.5 text-center">
-                                  <a
-                                    href={`tel:${item.member.phone}`}
-                                    className="inline-flex items-center gap-1 px-2.5 py-1 bg-rose-500 hover:bg-rose-600 text-white rounded-lg text-[10px] font-bold shadow-sm transition-colors cursor-pointer"
-                                  >
-                                    <Phone className="h-3 w-3" />
-                                    কল করুন
-                                  </a>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Personal Overdue Warning for Logger Member Role */}
+            {/* Personal Overdue Warning for Logger Member Role */}
               {currentRole === 'member' && activeMember && (() => {
                 const check = getMemberOverdueStatus(activeMember);
                 if (!check.isOverdue) return null;
@@ -1599,7 +1549,7 @@ export default function App() {
 
               {/* DASHBOARD SUMMARY INDICATORS WORKSPACE (For Admin & Owner) */}
               {currentRole !== 'member' ? (
-                <div className="grid grid-cols-2 lg:grid-cols-7 gap-3 sm:gap-4">
+                <div className="grid grid-cols-2 lg:grid-cols-8 gap-3 sm:gap-4">
                   <div className={`bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 text-left space-y-1 shadowing-sm border-b-4 border-b-emerald-500`}>
                     <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 block uppercase tracking-wider">মোট সদস্য</span>
                     <strong className="text-xl font-black text-slate-900 dark:text-white font-mono tracking-tight">{totalMemberCount} জন</strong>
@@ -1617,20 +1567,20 @@ export default function App() {
 
                   <div className={`bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 text-left space-y-1 shadowing-sm border-b-4 border-b-red-500`}>
                     <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 block uppercase tracking-wider">মোট ঋণ</span>
-                    <strong className="text-xl font-black text-rose-600 dark:text-rose-400 font-mono tracking-tight">{totalLoansPrincipalSum} ৳</strong>
-                    <div className="text-[9.5px] text-slate-400 font-sans">বিতরিত ঋণ</div>
+                    <strong className="text-xl font-black text-rose-600 dark:text-rose-400 font-mono tracking-tight">{totalLoansDisbursedPrincipal} ৳</strong>
+                    <div className="text-[9.5px] text-slate-400 font-sans">বিতরিত আসল ঋণ</div>
                   </div>
 
                   <div className={`bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 text-left space-y-1 shadowing-sm border-b-4 border-b-teal-500`}>
-                    <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 block uppercase tracking-wider">মোট লোন আদায়</span>
-                    <strong className="text-xl font-black text-teal-600 dark:text-teal-400 font-mono tracking-tight">{totalLoansRepaidSum} ৳</strong>
+                    <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 block uppercase tracking-wider">ঋণ আসল আদায়</span>
+                    <strong className="text-xl font-black text-teal-600 dark:text-teal-400 font-mono tracking-tight">{totalLoansRecoveredPrincipal} ৳</strong>
                     <div className="text-[9.5px] text-slate-400 font-sans">পুনরুদ্ধারকৃত আসল</div>
                   </div>
 
                   <div className={`bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 text-left space-y-1 shadowing-sm border-b-4 border-b-amber-500`}>
-                    <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 block uppercase tracking-wider">বকেয়া ঋণ</span>
+                    <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 block uppercase tracking-wider">বকেয়া ঋণ (আসল)</span>
                     <strong className="text-xl font-black text-amber-600 dark:text-amber-400 font-mono tracking-tight">{totalLoansDueSum} ৳</strong>
-                    <div className="text-[9.5px] text-slate-400 font-sans">খেলাপি ঋণ আমানত</div>
+                    <div className="text-[9.5px] text-slate-400 font-sans">খেলাপি আসল আমানত</div>
                   </div>
 
                   <div className={`bg-white dark:bg-slate-900 p-4 rounded-2xl border border-rose-100 dark:border-rose-950 text-left space-y-1 shadowing-sm border-b-4 border-b-rose-500 bg-rose-50/10`}>
@@ -1639,10 +1589,17 @@ export default function App() {
                     <div className="text-[9.5px] text-slate-400 font-mono">{todayDateStr}</div>
                   </div>
 
+                  {/* Separate Percentage Profit Folder Card */}
+                  <div className={`bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 text-left space-y-1 shadowing-sm border-b-4 border-b-purple-500 bg-purple-50/5`}>
+                    <span className="text-[10px] font-bold text-purple-600 dark:text-purple-400 block uppercase tracking-wider">মুনাফা তহবিল</span>
+                    <strong className="text-xl font-black text-purple-600 dark:text-purple-400 font-mono tracking-tight">{totalPercentageProfitSum} ৳</strong>
+                    <div className="text-[9.5px] text-slate-400 font-sans">মুনাফার আলাদা ফোল্ডার</div>
+                  </div>
+
                   {/* Gorgeous Premium Cash In Hand Widget Card - Resolves Requirement */}
                   {currentRole === 'admin' ? (
                     <button
-                      onClick={() => setActiveTab('diary')}
+                      onClick={() => changeTab('diary')}
                       title="কেশের আলমারী ও খরচ ডায়েরি খতিয়ান দেখুন"
                       className={`bg-slate-950 text-slate-100 p-4 rounded-2xl border border-slate-800 text-left space-y-1 shadow-md hover:shadow-lg hover:scale-[1.02] active:scale-95 transition-all duration-300 border-b-4 cursor-pointer group ${totalCashBalanceOfCoop >= 0 ? 'border-b-emerald-400' : 'border-b-rose-400'}`}
                     >
@@ -1778,7 +1735,7 @@ export default function App() {
                       </p>
                     </div>
                     <button
-                      onClick={() => setActiveTab('diary')}
+                      onClick={() => changeTab('diary')}
                       className="px-4 py-2.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl transition-all shadow-sm shadow-rose-100 dark:shadow-none hover:scale-105 active:scale-95 cursor-pointer shrink-0"
                     >
                       খরচ লিখুন ও দেখুন ➔
@@ -1799,7 +1756,7 @@ export default function App() {
                       </p>
                     </div>
                     <button
-                      onClick={() => setActiveTab('diary')}
+                      onClick={() => changeTab('diary')}
                       className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl transition-all shadow-sm shadow-blue-100 dark:shadow-none hover:scale-105 active:scale-95 cursor-pointer shrink-0"
                     >
                       কেশে টাকা খাতা ➔
@@ -1995,6 +1952,7 @@ export default function App() {
               fullState={{ members, installments, loans, trash, notifications }}
               appConfig={appConfig}
               onUpdateAppConfig={handleUpdateAppConfig}
+              overdueMembersList={overdueMembersList}
             />
           )}
 
@@ -2011,7 +1969,7 @@ export default function App() {
           
           {/* TAB 1: Dashboard */}
           <button
-            onClick={() => setActiveTab('dashboard')}
+            onClick={() => changeTab('dashboard')}
             className={`flex flex-col items-center justify-center gap-1 cursor-pointer transition-colors ${
               activeTab === 'dashboard'
                 ? (currentRole === 'admin' ? 'text-emerald-500' : currentRole === 'owner' ? 'text-blue-500' : 'text-red-500')
@@ -2025,7 +1983,7 @@ export default function App() {
           {/* TAB 2: Members (Hidden from simple members) */}
           {currentRole !== 'member' && (
             <button
-              onClick={() => setActiveTab('members')}
+              onClick={() => changeTab('members')}
               className={`flex flex-col items-center justify-center gap-1 cursor-pointer transition-colors ${
                 activeTab === 'members'
                   ? (currentRole === 'admin' ? 'text-emerald-500' : 'text-blue-500')
@@ -2039,7 +1997,7 @@ export default function App() {
 
           {/* TAB 3: Installments */}
           <button
-            onClick={() => setActiveTab('installments')}
+            onClick={() => changeTab('installments')}
             className={`flex flex-col items-center justify-center gap-1 cursor-pointer transition-colors ${
               activeTab === 'installments'
                 ? (currentRole === 'admin' ? 'text-emerald-500' : currentRole === 'owner' ? 'text-blue-500' : 'text-red-500')
@@ -2054,7 +2012,7 @@ export default function App() {
 
           {/* TAB 4: Loans */}
           <button
-            onClick={() => setActiveTab('loans')}
+            onClick={() => changeTab('loans')}
             className={`flex flex-col items-center justify-center gap-1 cursor-pointer transition-colors ${
               activeTab === 'loans'
                 ? (currentRole === 'admin' ? 'text-emerald-500' : currentRole === 'owner' ? 'text-blue-500' : 'text-red-500')
@@ -2070,7 +2028,7 @@ export default function App() {
           {/* TAB 5: Reports (Admin & Owner) */}
           {currentRole !== 'member' && (
             <button
-              onClick={() => setActiveTab('reports')}
+              onClick={() => changeTab('reports')}
               className={`flex flex-col items-center justify-center gap-1 cursor-pointer transition-colors ${
                 activeTab === 'reports'
                   ? (currentRole === 'admin' ? 'text-emerald-500' : 'text-blue-500')
@@ -2085,7 +2043,7 @@ export default function App() {
           {/* TAB 7: Cash & Expense Diary (Admin Only) */}
           {currentRole === 'admin' && (
             <button
-              onClick={() => setActiveTab('diary')}
+              onClick={() => changeTab('diary')}
               className={`flex flex-col items-center justify-center gap-1 cursor-pointer transition-colors ${
                 activeTab === 'diary'
                   ? 'text-emerald-500'
@@ -2100,7 +2058,7 @@ export default function App() {
           {/* TAB 6: Security (Admin) */}
           {currentRole === 'admin' && (
             <button
-              onClick={() => setActiveTab('security')}
+              onClick={() => changeTab('security')}
               className={`flex flex-col items-center justify-center gap-1 cursor-pointer transition-colors ${
                 activeTab === 'security'
                   ? 'text-emerald-500'
@@ -2577,8 +2535,6 @@ export default function App() {
             className="fixed inset-0 bg-slate-950/75 backdrop-blur-xs transition-opacity duration-300"
             onClick={() => {
               setShowExitConfirmModal(false);
-              // Push the state again to keep browser history correct
-              window.history.pushState({ role: currentRole, tab: activeTab, modal: activeModal }, '', currentRole ? `#${activeTab}` : '#login');
             }}
           />
 
@@ -2601,8 +2557,6 @@ export default function App() {
                 type="button"
                 onClick={() => {
                   setShowExitConfirmModal(false);
-                  // Push the state again to keep browser history correct
-                  window.history.pushState({ role: currentRole, tab: activeTab, modal: activeModal }, '', currentRole ? `#${activeTab}` : '#login');
                 }}
                 className="flex-1 py-2.5 px-4 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-bold cursor-pointer transition-all active:scale-[0.98]"
               >
