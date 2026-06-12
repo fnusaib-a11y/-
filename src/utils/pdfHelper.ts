@@ -1,7 +1,144 @@
 import html2pdf from 'html2pdf.js';
 
 /**
- * Dynamic PDF generation utility using bundled offline-safe html2pdf.js.
+ * Pure math-based OKLCH to RGB conversion string parser.
+ * This runs offline, requires zero canvas APIs, prevents recursive calls,
+ * and converts OKLCH colors perfectly to sRGB to be parsed by html2canvas securely.
+ */
+export const oklchToRgbString = (oklchStr: string): string => {
+  try {
+    const match = oklchStr.match(/oklch\s*\(\s*([\d.-]+%?)\s+([\d.-]+%?)\s+([\d.-]+(?:deg|rad|grad|turn)?)(?:\s*\/\s*([\d.-]+%?))?\s*\)/i);
+    if (!match) return oklchStr;
+    
+    let LStr = match[1];
+    let CStr = match[2];
+    let HStr = match[3];
+    let AStr = match[4];
+    
+    const L = LStr.endsWith('%') ? parseFloat(LStr) / 100 : parseFloat(LStr);
+    const C = CStr.endsWith('%') ? parseFloat(CStr) / 100 : parseFloat(CStr);
+    
+    let H = parseFloat(HStr);
+    if (HStr.endsWith('rad')) {
+      H = (parseFloat(HStr) * 180) / Math.PI;
+    } else if (HStr.endsWith('grad')) {
+      H = parseFloat(HStr) * 0.9;
+    } else if (HStr.endsWith('turn')) {
+      H = parseFloat(HStr) * 360;
+    }
+    
+    const A = AStr ? (AStr.endsWith('%') ? parseFloat(AStr) / 100 : parseFloat(AStr)) : 1;
+    
+    // Oklab constant conversion
+    const hRad = (H * Math.PI) / 180;
+    const aLab = C * Math.cos(hRad);
+    const bLab = C * Math.sin(hRad);
+    
+    // Convert to LMS color space
+    const l_lms = L + 0.3963377774 * aLab + 0.2158037573 * bLab;
+    const m_lms = L - 0.1055613458 * aLab - 0.0638541728 * bLab;
+    const s_lms = L - 0.0894841775 * aLab - 1.2914855414 * bLab;
+    
+    const l_ = l_lms * l_lms * l_lms;
+    const m_ = m_lms * m_lms * m_lms;
+    const s_ = s_lms * s_lms * s_lms;
+    
+    // Convert LMS to Linear RGB
+    const r_lin = +4.0767416621 * l_ - 3.3077115913 * m_ + 0.2309699292 * s_;
+    const g_lin = -1.2684380046 * l_ + 2.6097574011 * m_ - 0.3413193965 * s_;
+    const b_lin = -0.0041960863 * l_ - 0.703418614 * m_ + 1.707614701 * s_;
+    
+    // Standard gamma compression to sRGB
+    const compress = (x: number) => {
+      const clamped = Math.max(0, Math.min(1, x));
+      return clamped <= 0.0031308
+        ? clamped * 12.92
+        : 1.055 * Math.pow(clamped, 1 / 2.4) - 0.055;
+    };
+    
+    const r = Math.round(compress(r_lin) * 255);
+    const g = Math.round(compress(g_lin) * 255);
+    const b = Math.round(compress(b_lin) * 255);
+    
+    if (A < 1) {
+      return `rgba(${r}, ${g}, ${b}, ${A})`;
+    }
+    return `rgb(${r}, ${g}, ${b})`;
+  } catch (err) {
+    return 'rgb(71, 85, 105)'; // Safe, neutral slate grey fallback
+  }
+};
+
+export const oklabToRgbString = (oklabStr: string): string => {
+  try {
+    const match = oklabStr.match(/oklab\s*\(\s*([\d.-]+%?)\s+([\d.-]+%?)\s+([\d.-]+%?)(?:\s*\/\s*([\d.-]+%?))?\s*\)/i);
+    if (!match) return oklabStr;
+    
+    let LStr = match[1];
+    let aStr = match[2];
+    let bStr = match[3];
+    let AStr = match[4];
+    
+    const L_val = LStr.endsWith('%') ? parseFloat(LStr) / 100 : parseFloat(LStr);
+    const a_val = aStr.endsWith('%') ? parseFloat(aStr) / 100 : parseFloat(aStr);
+    const b_val = bStr.endsWith('%') ? parseFloat(bStr) / 100 : parseFloat(bStr);
+    
+    const A = AStr ? (AStr.endsWith('%') ? parseFloat(AStr) / 100 : parseFloat(AStr)) : 1;
+    
+    // Convert to LMS color space using okLAB constants
+    const l_lms = L_val + 0.3963377774 * a_val + 0.2158037573 * b_val;
+    const m_lms = L_val - 0.1055613458 * a_val - 0.0638541728 * b_val;
+    const s_lms = L_val - 0.0894841775 * a_val - 1.2914855414 * b_val;
+    
+    const l_ = l_lms * l_lms * l_lms;
+    const m_ = m_lms * m_lms * m_lms;
+    const s_ = s_lms * s_lms * s_lms;
+    
+    // Convert LMS to Linear RGB
+    const r_lin = +4.0767416621 * l_ - 3.3077115913 * m_ + 0.2309699292 * s_;
+    const g_lin = -1.2684380046 * l_ + 2.6097574011 * m_ - 0.3413193965 * s_;
+    const b_lin = -0.0041960863 * l_ - 0.703418614 * m_ + 1.707614701 * s_;
+    
+    // Standard gamma compression to sRGB
+    const compress = (x: number) => {
+      const clamped = Math.max(0, Math.min(1, x));
+      return clamped <= 0.0031308
+        ? clamped * 12.92
+        : 1.055 * Math.pow(clamped, 1 / 2.4) - 0.055;
+    };
+    
+    const r = Math.round(compress(r_lin) * 255);
+    const g = Math.round(compress(g_lin) * 255);
+    const b = Math.round(compress(b_lin) * 255);
+    
+    if (A < 1) {
+      return `rgba(${r}, ${g}, ${b}, ${A})`;
+    }
+    return `rgb(${r}, ${g}, ${b})`;
+  } catch (err) {
+    return 'rgb(71, 85, 105)'; // Safe, neutral slate grey fallback
+  }
+};
+
+/**
+ * Replaces all occurrences of oklch(...) or oklab(...) inside a css text / styles attribute block.
+ */
+export const sanitizeColors = (cssText: string): string => {
+  if (!cssText || typeof cssText !== 'string') return cssText;
+  
+  // 1. Sanitize oklch
+  const oklchRegex = /oklch\s*\(\s*[\d.-]+%?\s+[\d.-]+%?\s+[\d.-]+(?:deg|rad|grad|turn)?(?:\s*\/\s*[\d.-]+%?)?\s*\)/gi;
+  let running = cssText.replace(oklchRegex, (match) => oklchToRgbString(match));
+  
+  // 2. Sanitize oklab
+  const oklabRegex = /oklab\s*\(\s*[\d.-]+%?\s+[\d.-]+%?\s+[\d.-]+%?(?:\s*\/\s*[\d.-]+%?)?\s*\)/gi;
+  running = running.replace(oklabRegex, (match) => oklabToRgbString(match));
+  
+  return running;
+};
+
+/**
+ * Dynamic PDF generation utility.
  */
 export const downloadPdf = async (elementId: string, filename: string, title?: string) => {
   const element = document.getElementById(elementId);
@@ -10,58 +147,35 @@ export const downloadPdf = async (elementId: string, filename: string, title?: s
     return;
   }
 
-  const sanitizeColors = (value: string): string => {
-    if (!value || typeof value !== 'string') return value;
-    if (!value.includes('oklch') && !value.includes('color(')) return value;
+  // Preserve original getComputedStyle and styleSheets descriptor
+  const originalGetComputedStyle = window.getComputedStyle;
+  
+  let tempStyle: HTMLStyleElement | null = null;
+  let hasOverriddenStyleSheets = false;
+  let originalStyleSheetsDescriptor = Object.getOwnPropertyDescriptor(document, 'styleSheets');
+  if (!originalStyleSheetsDescriptor) {
+    originalStyleSheetsDescriptor = Object.getOwnPropertyDescriptor(Document.prototype, 'styleSheets');
+  }
 
-    let canvas: HTMLCanvasElement | null = null;
-    let ctx: CanvasRenderingContext2D | null = null;
-
-    const resolveColor = (colorMatch: string): string => {
-      try {
-        if (!canvas) {
-          canvas = document.createElement('canvas');
-          canvas.width = 1;
-          canvas.height = 1;
-          ctx = canvas.getContext('2d');
-        }
-        if (ctx) {
-          ctx.fillStyle = 'rgba(0, 0, 0, 0)'; // baseline
-          ctx.fillStyle = colorMatch;
-          const resolved = ctx.fillStyle;
-          if (resolved === 'rgba(0, 0, 0, 0)' || !resolved || resolved.includes('oklch') || resolved.includes('color(')) {
-            // Failed to parse or browser returned oklch/color string
-            return 'rgb(16, 185, 129)';
-          }
-          return resolved;
-        }
-      } catch (e) {
-        // Fallback
-      }
-      return 'rgb(16, 185, 129)';
-    };
-
-    const oklchRegex = /oklch\([^)]+\)/gi;
-    let processed = value.replace(oklchRegex, resolveColor);
-
-    const colorRegex = /color\([^)]+\)/gi;
-    processed = processed.replace(colorRegex, resolveColor);
-
-    return processed;
-  };
-
+  // 1. Recursive helper to clean nested inline styling of clones
   const sanitizeElementStyles = (el: HTMLElement) => {
+    // Sanitize standard style attributes
     const styleAttr = el.getAttribute('style');
-    if (styleAttr && (styleAttr.includes('oklch') || styleAttr.includes('color('))) {
+    if (styleAttr && (styleAttr.includes('oklch') || styleAttr.includes('oklab') || styleAttr.includes('color('))) {
       el.setAttribute('style', sanitizeColors(styleAttr));
     }
-    for (let i = 0; i < el.style.length; i++) {
-      const key = el.style[i];
-      const val = el.style.getPropertyValue(key);
-      if (val && (val.includes('oklch') || val.includes('color('))) {
-        el.style.setProperty(key, sanitizeColors(val));
-      }
+    
+    // Sanitize specific attributes like fill, stroke, which might contain colors in svg
+    const fillAttr = el.getAttribute('fill');
+    if (fillAttr && (fillAttr.includes('oklch') || fillAttr.includes('oklab'))) {
+      el.setAttribute('fill', sanitizeColors(fillAttr));
     }
+    
+    const strokeAttr = el.getAttribute('stroke');
+    if (strokeAttr && (strokeAttr.includes('oklch') || strokeAttr.includes('oklab'))) {
+      el.setAttribute('stroke', sanitizeColors(strokeAttr));
+    }
+
     for (let i = 0; i < el.children.length; i++) {
       const child = el.children[i];
       if (child instanceof HTMLElement) {
@@ -70,19 +184,34 @@ export const downloadPdf = async (elementId: string, filename: string, title?: s
     }
   };
 
-  // Safe prototype delegation that avoids any Proxy Illegal invocation errors
-  const originalGetPropertyValue = CSSStyleDeclaration.prototype.getPropertyValue;
-  const originalStyleSheets = Object.getOwnPropertyDescriptor(Document.prototype, 'styleSheets');
-
-  let tempStyle: HTMLStyleElement | null = null;
-  const deactivatedNodes: (HTMLStyleElement | HTMLLinkElement)[] = [];
-  const deactivatedSheets: { sheet: StyleSheet; originalState: boolean }[] = [];
-
   try {
-    // 1. Gather and compile page styles into a single safe compiled stylesheet
+    // 2. Safe, non-destructive proxying of window.getComputedStyle to translate all oklch and oklab values to sRGB
+    window.getComputedStyle = function(elt, pseudoElt) {
+      const style = originalGetComputedStyle.call(window, elt, pseudoElt);
+      return new Proxy(style, {
+        get(target, prop) {
+          const val = target[prop as any];
+          if (typeof val === 'function') {
+            return function(...args: any[]) {
+              const result = val.apply(target, args);
+              if (typeof result === 'string' && (result.includes('oklch') || result.includes('oklab'))) {
+                return sanitizeColors(result);
+              }
+              return result;
+            };
+          }
+          if (typeof val === 'string' && (val.includes('oklch') || val.includes('oklab'))) {
+            return sanitizeColors(val);
+          }
+          return val;
+        }
+      });
+    };
+
+    // 3. Compile and sanitize existing stylesheets
     let combinedCssText = '';
-    const styleSheetsList = Array.from(document.styleSheets);
-    for (const sheet of styleSheetsList) {
+    const originalSheets = Array.from(document.styleSheets);
+    for (const sheet of originalSheets) {
       try {
         if (sheet.disabled) continue;
         const rules = sheet.cssRules || sheet.rules;
@@ -91,64 +220,41 @@ export const downloadPdf = async (elementId: string, filename: string, title?: s
           combinedCssText += rules[i].cssText + '\n';
         }
       } catch (e) {
-        // Safe cross-origin fallback
+        // Cross-origin styles reading fallback (safe to ignore)
       }
     }
 
-    // 2. Temporarily disable all original stylesheet elements in the DOM
-    const rawStyleNodes = Array.from(document.querySelectorAll('style, link[rel="stylesheet"]')) as (HTMLStyleElement | HTMLLinkElement)[];
-    for (const node of rawStyleNodes) {
-      if (!node.disabled) {
-        try {
-          node.disabled = true;
-          deactivatedNodes.push(node);
-        } catch (e) {}
-      }
-    }
-
-    // Also disable stylesheet objects directly so html2canvas ignores them
-    for (const sheet of styleSheetsList) {
-      if (sheet && !sheet.disabled) {
-        try {
-          sheet.disabled = true;
-          deactivatedSheets.push({ sheet, originalState: false });
-        } catch (e) {}
-      }
-    }
-
-    // 3. Sanitize the entire global stylesheet text
+    // Convert oklch to rgb in stylesheet text
     const safeCssText = sanitizeColors(combinedCssText);
 
-    // Create the temporary safe style node
+    // Create the temporary safe style block
     tempStyle = document.createElement('style');
     tempStyle.id = 'html2pdf-safe-style';
     tempStyle.textContent = safeCssText;
     document.head.appendChild(tempStyle);
 
-    // Get the sheet reference
-    const safeSheet = tempStyle.sheet;
-
-    // Temporarily mock styleSheets inside document to return our beautiful parsed safeSheet
+    // 4. Override document.styleSheets dynamically so html2canvas only reads our safe style rule lists
     try {
       Object.defineProperty(document, 'styleSheets', {
         get() {
-          return safeSheet ? [safeSheet] : [];
+          return tempStyle && tempStyle.sheet ? [tempStyle.sheet] : [];
         },
         configurable: true
       });
-    } catch (e) {
-      console.warn("Could not redefine styleSheets properties, proceeding naturally:", e);
+      hasOverriddenStyleSheets = true;
+    } catch (err) {
+      console.warn('Unable to override document.styleSheets:', err);
     }
 
-    // Clone and prepare offscreen container styled beautifully for A4 PDF download
+    // 5. Build the offscreen printable container
     const container = document.createElement('div');
     container.className = "p-8 bg-white text-slate-800 font-sans";
-    container.style.width = '790px'; // standard printable A4 width in sub-rendered window
+    container.style.width = '790px'; // optimal A4 print viewport
 
-    // If it's a receipt or ID card, we want a tighter container
     const isIdCard = elementId === 'printable-id-card';
     const isReceipt = elementId === 'printable-savings-receipt' || elementId.includes('receipt') || filename.includes('receipt') || filename.includes('slip');
 
+    // Add professional layout headers for documents (except receipts and badges)
     if (title && !isIdCard && !isReceipt) {
       const header = document.createElement('div');
       header.className = "text-center mb-8 pb-5 border-b-2 border-slate-100";
@@ -160,27 +266,26 @@ export const downloadPdf = async (elementId: string, filename: string, title?: s
       container.appendChild(header);
     }
 
+    // Clone target node and inject to container
     const clone = element.cloneNode(true) as HTMLElement;
     
-    // Adjust nested styling of the clone for high contrast legible display
     if (!isIdCard) {
       clone.style.backgroundColor = '#ffffff';
       clone.style.color = '#0f172a';
     } else {
-      // Keep ID Cards fully styled as designed (dark green gradient badge)
       clone.style.backgroundColor = 'transparent';
     }
-    
-    // Remove any negative flex or spacing inside list controls if visible
-    const ctrlButtons = clone.querySelectorAll('button, a, .no-print');
-    ctrlButtons.forEach(btn => (btn as HTMLElement).style.display = 'none');
 
-    // Remove oklch from cloned inline styles
+    // Strip control buttons from being printed/rendered
+    const ctrlButtons = clone.querySelectorAll('button, a, .no-print');
+    ctrlButtons.forEach(btn => ((btn as HTMLElement).style.display = 'none'));
+
+    // Strip inline styles which might have color formatting
     sanitizeElementStyles(clone);
 
     container.appendChild(clone);
-    
-    // Add professional footer
+
+    // Insert structured reporting footnotes (if non-badge)
     if (!isIdCard) {
       const footer = document.createElement('div');
       footer.className = "mt-12 pt-4 border-t border-slate-100 flex justify-between items-center text-[9px] text-slate-400 font-sans";
@@ -191,7 +296,7 @@ export const downloadPdf = async (elementId: string, filename: string, title?: s
       container.appendChild(footer);
     }
 
-    // Append to body temporarily
+    // Place container offscreen securely
     container.style.position = 'absolute';
     container.style.left = '-9999px';
     container.style.top = '-9999px';
@@ -201,65 +306,49 @@ export const downloadPdf = async (elementId: string, filename: string, title?: s
       margin:       isIdCard ? 20 : isReceipt ? 10 : 15,
       filename:     filename.endsWith('.pdf') ? filename : `${filename}.pdf`,
       image:        { type: 'jpeg' as const, quality: 0.98 },
-      html2canvas:  { scale: 2.5, useCORS: true, logging: false },
+      html2canvas:  { scale: 2.2, useCORS: true, logging: false },
       jsPDF:        { 
         unit: 'mm' as const, 
         format: isReceipt ? ('a5' as const) : ('a4' as const), 
-        orientation: isIdCard ? ('portrait' as const) : ('portrait' as const) 
+        orientation: 'portrait' as const
       }
     };
 
-    // Safely override getPropertyValue on the prototype to convert oklch colors on-the-fly
-    CSSStyleDeclaration.prototype.getPropertyValue = function(property: string) {
-      const value = originalGetPropertyValue.call(this, property);
-      if (typeof value === 'string' && (value.includes('oklch') || value.includes('color('))) {
-        return sanitizeColors(value);
-      }
-      return value;
-    };
-
-    // Run PDF generation
+    // Execute generation pipeline
     await html2pdf().from(container).set(opt).save();
-    
-    // Cleanup container
+
+    // Remove offscreen layout container
     document.body.removeChild(container);
+
   } catch (error: any) {
     console.error('PDF Generation Failed:', error);
-    alert('পিডিএফ ডাউনলোড তৈরি করা সম্ভব হচ্ছে না, অনুগ্রহ করে আবার চেষ্টা করুন বা ব্রাউজারের প্রিন্ট ফিচার ব্যবহার করুন।');
+    alert('পিডিএফ ডাউনলোড করা সম্ভব হচ্ছে না, অনুগ্রহ করে আবার চেষ্টা করুন বা ব্রাউজারের প্রিন্ট ফিচার ব্যবহার করুন।');
   } finally {
-    // 1. Restore original style/link nodes
-    for (const node of deactivatedNodes) {
-      try {
-        node.disabled = false;
-      } catch (e) {}
+    // 1. Restore getComputedStyle securely
+    if (originalGetComputedStyle) {
+      window.getComputedStyle = originalGetComputedStyle;
     }
 
-    // 2. Erase disables on stylesheet objects
-    for (const item of deactivatedSheets) {
+    // 2. Restore document.styleSheets securely
+    if (hasOverriddenStyleSheets) {
       try {
-        item.sheet.disabled = item.originalState;
-      } catch (e) {}
+        if (originalStyleSheetsDescriptor) {
+          Object.defineProperty(document, 'styleSheets', originalStyleSheetsDescriptor);
+        } else {
+          delete (document as any).styleSheets;
+        }
+      } catch (e) {
+        try {
+          delete (document as any).styleSheets;
+        } catch (err) {
+          // Ignore
+        }
+      }
     }
 
     // 3. Clean up temporary style block
     if (tempStyle && tempStyle.parentNode) {
       tempStyle.parentNode.removeChild(tempStyle);
-    }
-
-    // 4. Restore original prototype descriptors and getters
-    CSSStyleDeclaration.prototype.getPropertyValue = originalGetPropertyValue;
-    if (originalStyleSheets) {
-      try {
-        Object.defineProperty(document, 'styleSheets', originalStyleSheets);
-      } catch (e) {
-        // Safe to ignore
-      }
-    } else {
-      try {
-        delete (document as any).styleSheets;
-      } catch (e) {
-        // Safe to ignore
-      }
     }
   }
 };

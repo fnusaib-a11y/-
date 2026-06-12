@@ -51,6 +51,10 @@ export default function MemberManagement({ members, onAddMember, onUpdateMember,
   const [pin, setPin] = useState('');
   const [status, setStatus] = useState<'active' | 'inactive'>('active');
   const [photoUrl, setPhotoUrl] = useState('');
+  const [memberCategory, setMemberCategory] = useState<'savings_only' | 'borrower'>('savings_only');
+
+  // List filter state
+  const [listCategory, setListCategory] = useState<'all' | 'savings_only' | 'borrower'>('all');
 
   // Camera & Upload auxiliary states
   const [showWebcam, setShowWebcam] = useState(false);
@@ -58,11 +62,18 @@ export default function MemberManagement({ members, onAddMember, onUpdateMember,
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
 
-  // Search filter with safe fallbacks for manually created/modified DB docs
+  // Search filter with category tabs & safe fallbacks for manually created/modified DB docs
   const filteredMembers = members.filter(m => {
     const memberName = m?.name || '';
     const memberPhone = m?.phone || '';
     const memberId = m?.id || '';
+    
+    // Check if category matches
+    if (listCategory !== 'all') {
+      const cat = m.memberCategory || 'borrower';
+      if (cat !== listCategory) return false;
+    }
+
     return (
       memberName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       memberPhone.includes(searchTerm) ||
@@ -81,6 +92,7 @@ export default function MemberManagement({ members, onAddMember, onUpdateMember,
     setPin('');
     setStatus('active');
     setPhotoUrl('');
+    setMemberCategory('savings_only');
     setEditingId(null);
     stopWebcam();
   };
@@ -134,6 +146,7 @@ export default function MemberManagement({ members, onAddMember, onUpdateMember,
     setPin(m.pin);
     setStatus(m.status);
     setPhotoUrl(m.photoUrl || '');
+    setMemberCategory(m.memberCategory || 'borrower');
     setEditingId(m.id);
     setIsAdding(true);
   };
@@ -240,7 +253,8 @@ export default function MemberManagement({ members, onAddMember, onUpdateMember,
       type,
       targetInstallmentAmount: parseFloat(targetAmount) || 0,
       status,
-      pin: pin.trim().slice(0, 4)
+      pin: pin.trim().slice(0, 4),
+      memberCategory
     };
 
     if (editingId) {
@@ -498,6 +512,18 @@ export default function MemberManagement({ members, onAddMember, onUpdateMember,
                   <option value="inactive">নিষ্ক্রিয় সদস্য (Inactive)</option>
                 </select>
               </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">সদস্যের বিভাগ (Category) *</label>
+                <select
+                  value={memberCategory}
+                  onChange={(e) => setMemberCategory(e.target.value as any)}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-250 rounded-lg text-sm font-bold text-slate-800 focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 outline-none"
+                >
+                  <option value="savings_only">শুধুমাত্র সঞ্চয়কারী সদস্য (Savings Only)</option>
+                  <option value="borrower">ঋণগ্রহীতা সদস্য (Borrower / Both)</option>
+                </select>
+              </div>
             </div>
 
             <div>
@@ -557,7 +583,7 @@ export default function MemberManagement({ members, onAddMember, onUpdateMember,
                     <div className="mt-4 pt-3 border-t border-slate-100 flex gap-2">
                       <button
                         onClick={() => triggerResolvePin(req.id)}
-                        className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] rounded transition-colors cursor-pointer text-center"
+                        className="flex-1 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] rounded transition-colors cursor-pointer text-center"
                       >
                         নতুন পিন সেট করুন
                       </button>
@@ -573,8 +599,9 @@ export default function MemberManagement({ members, onAddMember, onUpdateMember,
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs">
               <div className="bg-white border border-slate-205 rounded-3xl p-6 w-full max-w-sm text-left shadow-2xl relative animate-in zoom-in-95 duration-150">
                 <button
+                  type="button"
                   onClick={() => setResolvingRequestId(null)}
-                  className="absolute top-4 right-4 p-1 rounded-full text-slate-400 hover:text-slate-605 hover:bg-slate-100 transition-colors cursor-pointer"
+                  className="absolute top-4 right-4 p-1 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
                 >
                   <X className="h-5 w-5" />
                 </button>
@@ -588,7 +615,7 @@ export default function MemberManagement({ members, onAddMember, onUpdateMember,
 
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">প্রस्तাবিত নতুন পিন (৪-৬ ডিজিট)</label>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">প্রস্তাবিত নতুন পিন (৪-৬ ডিজিট)</label>
                     <input
                       type="text"
                       maxLength={6}
@@ -620,128 +647,189 @@ export default function MemberManagement({ members, onAddMember, onUpdateMember,
           )}
 
           <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-          {/* Search Table Block */}
-          <div className="p-4 bg-slate-50/50 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-3">
-            <div className="relative max-w-sm w-full">
-              <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400">
-                <Search className="h-4 w-4" />
-              </span>
-              <input
-                type="text"
-                placeholder="সদস্য খুঁজুন (নাম, আইডি বা মোবাইল নং)"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-xs outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
-              />
+            {/* Search Table Block */}
+            <div className="p-4 bg-slate-50/50 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-3">
+              <div className="relative max-w-sm w-full">
+                <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400">
+                  <Search className="h-4 w-4" />
+                </span>
+                <input
+                  type="text"
+                  placeholder="সদস্য খুঁজুন (নাম, আইডি বা মোবাইল নং)"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-xs outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
+                />
+              </div>
+              <div className="text-xs text-slate-500">
+                মোট নিবন্ধিত সদস্য: <span className="font-bold text-slate-800 font-mono">{filteredMembers.length}</span> জন
+              </div>
             </div>
-            <div className="text-xs text-slate-500">
-              মোট নিবন্ধিত সদস্য: <span className="font-bold text-slate-800 font-mono">{filteredMembers.length}</span> জন
-            </div>
-          </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse text-left text-xs">
-              <thead>
-                <tr className="bg-slate-100/50 text-slate-600 font-medium border-b border-slate-200">
-                  <th className="p-4 w-16 text-center">সিরিয়াল নং</th>
-                  <th className="p-4">সদস্য আইডি</th>
-                  <th className="p-4">সদস্য পরিচিতি</th>
-                  <th className="p-4">যোগাযোগ</th>
-                  <th className="p-4">কিস্তির ধরন ও টার্গেট</th>
-                  <th className="p-4">অবস্থা (Status)</th>
-                  {role === 'admin' && <th className="p-4 text-center">নিয়ন্ত্রণ</th>}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 text-slate-700">
-                {filteredMembers.length > 0 ? (
-                  filteredMembers.map((m, index) => (
-                    <tr key={m.id} className="hover:bg-slate-50/80 transition-colors">
-                      <td className="p-4 w-16 text-center text-slate-500 font-semibold font-mono">{index + 1}</td>
-                      <td className="p-4 font-mono font-bold text-slate-900">{m.id}</td>
-                      <td className="p-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-full bg-slate-100 border border-slate-200 overflow-hidden flex items-center justify-center shrink-0">
-                            {m.photoUrl ? (
-                              <img src={m.photoUrl} alt="Photo" className="w-full h-full object-cover" />
-                            ) : (
-                              <div className="text-slate-500 font-semibold">{m.name.slice(0,2)}</div>
+            {/* Category Tabs Block ("ঘর আলাদা হবে") */}
+            <div className="flex border-b border-slate-100 bg-slate-50/30 px-4 pt-1 flex-wrap gap-2 md:gap-0 font-sans">
+              <button
+                type="button"
+                onClick={() => setListCategory('savings_only')}
+                className={`pb-3 pt-2 px-4 text-xs font-bold border-b-2 transition-all relative flex items-center gap-1.5 cursor-pointer ${
+                  listCategory === 'savings_only'
+                    ? 'border-emerald-600 text-emerald-700'
+                    : 'border-transparent text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                <span>🏠 শুধুমাত্র সঞ্চয়কারী সদস্য</span>
+                <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-mono font-black ${
+                  listCategory === 'savings_only' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-150 text-slate-600'
+                }`}>{members.filter(m => m.memberCategory === 'savings_only').length}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setListCategory('borrower')}
+                className={`pb-3 pt-2 px-4 text-xs font-bold border-b-2 transition-all relative flex items-center gap-1.5 cursor-pointer ${
+                  listCategory === 'borrower'
+                    ? 'border-blue-600 text-blue-700'
+                    : 'border-transparent text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                <span>💼 ঋণগ্রহীতা সদস্য</span>
+                <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-mono font-black ${
+                  listCategory === 'borrower' ? 'bg-blue-100 text-blue-800' : 'bg-slate-150 text-slate-600'
+                }`}>{members.filter(m => (m.memberCategory || 'borrower') === 'borrower').length}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setListCategory('all')}
+                className={`pb-3 pt-2 px-4 text-xs font-bold border-b-2 transition-all relative flex items-center gap-1.5 cursor-pointer ${
+                  listCategory === 'all'
+                    ? 'border-slate-800 text-slate-900'
+                    : 'border-transparent text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                <span>👥 সকল সদস্য</span>
+                <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-mono font-black ${
+                  listCategory === 'all' ? 'bg-slate-800 text-white animate-pulse' : 'bg-slate-150 text-slate-600'
+                }`}>{members.length}</span>
+              </button>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse text-left text-xs">
+                <thead>
+                  <tr className="bg-slate-100/50 text-slate-600 font-medium border-b border-slate-200">
+                    <th className="p-4 w-16 text-center">সিরিয়াল নং</th>
+                    <th className="p-4">সদস্য আইডি</th>
+                    <th className="p-4">সদস্য পরিচিতি</th>
+                    <th className="p-4">যোগাযোগ</th>
+                    <th className="p-4">কিস্তির ধরন ও টার্গেট</th>
+                    <th className="p-4">সদস্য বিভাগ</th>
+                    <th className="p-4">অবস্থা (Status)</th>
+                    {role === 'admin' && <th className="p-4 text-center">নিয়ন্ত্রণ</th>}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-slate-700">
+                  {filteredMembers.length > 0 ? (
+                    filteredMembers.map((m, index) => (
+                      <tr key={m.id} className="hover:bg-slate-50/80 transition-colors">
+                        <td className="p-4 w-16 text-center text-slate-500 font-semibold font-mono">{index + 1}</td>
+                        <td className="p-4 font-mono font-bold text-slate-900">{m.id}</td>
+                        <td className="p-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 rounded-full bg-slate-100 border border-slate-200 overflow-hidden flex items-center justify-center shrink-0">
+                              {m.photoUrl ? (
+                                <img src={m.photoUrl} alt="Photo" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                              ) : (
+                                <div className="text-slate-500 font-semibold">{m.name.slice(0,2)}</div>
+                              )}
+                            </div>
+                            <div>
+                              <div className="font-semibold text-slate-800 text-sm">{m.name}</div>
+                              <div className="text-[10px] text-slate-400 font-mono">NID: {m.nid}</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="p-4 space-y-1">
+                          <div className="flex items-center gap-1 text-slate-600 font-mono text-[11px]">
+                            <Phone className="h-3 w-3 text-slate-400" /> {m.phone}
+                          </div>
+                          <div className="flex items-center gap-1 text-slate-500 max-w-xs truncate">
+                            <MapPin className="h-3 w-3 text-slate-400" /> {m.address}
+                          </div>
+                        </td>
+                        <td className="p-4">
+                          <div className="space-y-1">
+                            <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                              m.type === 'daily' ? 'bg-amber-100 text-amber-800' :
+                              m.type === 'weekly' ? 'bg-teal-100 text-teal-800' : 'bg-purple-100 text-purple-800'
+                            }`}>
+                              {m.type === 'daily' ? 'দৈনিক' : m.type === 'weekly' ? 'সাপ্তাহিক' : 'মাসিক'}
+                            </span>
+                            <div className="font-mono text-slate-900 font-semibold">{m.targetInstallmentAmount} ৳</div>
+                          </div>
+                        </td>
+                        <td className="p-4 font-sans">
+                          <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-black ${
+                            m.memberCategory === 'savings_only'
+                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-150'
+                              : 'bg-blue-50 text-blue-700 border border-blue-150'
+                          }`}>
+                            {m.memberCategory === 'savings_only' ? 'শুধুমাত্র সঞ্চয়কারী' : 'ঋণগ্রহীতা সদস্য'}
+                          </span>
+                        </td>
+                        <td className="p-4">
+                          <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold ${
+                            m.status === 'active' ? 'bg-emerald-150 text-emerald-800' : 'bg-rose-100 text-rose-800'
+                          }`}>
+                            <span className={`h-1.5 w-1.5 rounded-full ${m.status === 'active' ? 'bg-emerald-500' : 'bg-rose-500'}`}></span>
+                            {m.status === 'active' ? 'চলমান' : 'নিষ্ক্রিয়'}
+                          </span>
+                        </td>
+                        <td className="p-4 text-center">
+                          <div className="flex items-center justify-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => setSelectedMemberIDCard(m)}
+                              title="আইডি কার্ড প্রিন্ট"
+                              className="p-1 px-1.5 bg-sky-50 text-sky-700 border border-sky-100 hover:bg-sky-100 rounded flex items-center gap-1 cursor-pointer"
+                            >
+                              <CreditCard className="h-3.5 w-3.5" />
+                              কার্ড
+                            </button>
+                            {role === 'admin' && (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => handleEditClick(m)}
+                                  className="p-1.5 bg-slate-50 text-slate-600 border border-slate-200 hover:bg-slate-100 rounded transition-all cursor-pointer"
+                                >
+                                  <FileEdit className="h-3.5 w-3.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteClick(m.id, m.name)}
+                                  className="p-1.5 bg-rose-50 text-rose-600 border border-rose-100 hover:bg-rose-100 rounded transition-all cursor-pointer"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </button>
+                              </>
                             )}
                           </div>
-                          <div>
-                            <div className="font-semibold text-slate-800 text-sm">{m.name}</div>
-                            <div className="text-[10px] text-slate-400 font-mono">NID: {m.nid}</div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="p-4 space-y-1">
-                        <div className="flex items-center gap-1 text-slate-600 font-mono text-[11px]">
-                          <Phone className="h-3 w-3 text-slate-400" /> {m.phone}
-                        </div>
-                        <div className="flex items-center gap-1 text-slate-500 max-w-xs truncate">
-                          <MapPin className="h-3 w-3 text-slate-400" /> {m.address}
-                        </div>
-                      </td>
-                      <td className="p-4">
-                        <div className="space-y-1">
-                          <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-bold ${
-                            m.type === 'daily' ? 'bg-amber-100 text-amber-800' :
-                            m.type === 'weekly' ? 'bg-teal-100 text-teal-800' : 'bg-purple-100 text-purple-800'
-                          }`}>
-                            {m.type === 'daily' ? 'দৈনিক' : m.type === 'weekly' ? 'সাপ্তাহিক' : 'মাসিক'}
-                          </span>
-                          <div className="font-mono text-slate-900 font-semibold">{m.targetInstallmentAmount} ৳</div>
-                        </div>
-                      </td>
-                      <td className="p-4">
-                        <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold ${
-                          m.status === 'active' ? 'bg-emerald-150 text-emerald-800' : 'bg-rose-100 text-rose-800'
-                        }`}>
-                          <span className={`h-1.5 w-1.5 rounded-full ${m.status === 'active' ? 'bg-emerald-500' : 'bg-rose-500'}`}></span>
-                          {m.status === 'active' ? 'চলমান' : 'নিষ্ক্রিয়'}
-                        </span>
-                      </td>
-                      <td className="p-4 text-center">
-                        <div className="flex items-center justify-center gap-1.5">
-                          <button
-                            onClick={() => setSelectedMemberIDCard(m)}
-                            title="আইডি কার্ড প্রিন্ট"
-                            className="p-1 px-1.5 bg-sky-50 text-sky-700 border border-sky-100 hover:bg-sky-100 rounded flex items-center gap-1"
-                          >
-                            <CreditCard className="h-3.5 w-3.5" />
-                            কাের্ড
-                          </button>
-                          {role === 'admin' && (
-                            <>
-                              <button
-                                onClick={() => handleEditClick(m)}
-                                className="p-1.5 bg-slate-50 text-slate-600 border border-slate-200 hover:bg-slate-100 rounded transition-all"
-                              >
-                                <FileEdit className="h-3.5 w-3.5" />
-                              </button>
-                              <button
-                                onClick={() => handleDeleteClick(m.id, m.name)}
-                                className="p-1.5 bg-rose-50 text-rose-600 border border-rose-100 hover:bg-rose-100 rounded transition-all"
-                              >
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </button>
-                            </>
-                          )}
-                        </div>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={8} className="text-center p-8 text-slate-400 font-sans">
+                        কোনো সদস্য পাওয়া যায়নি।
                       </td>
                     </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan={6} className="text-center p-8 text-slate-400 font-sans">
-                      কোনো সদস্য পাওয়া যায়নি।
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
-      </div>
       )}
 
       {/* Interactive Member Digital ID Card Modal */}

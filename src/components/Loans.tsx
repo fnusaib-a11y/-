@@ -90,8 +90,8 @@ export default function Loans({ members, loans, onAddLoan, onRepayLoan, onDelete
     return dateObj.toISOString().split('T')[0];
   }, [takenDate, installmentCount, installmentType]);
 
-  // Filter members eligible for taking loans (active members)
-  const activeMembers = members.filter(m => m?.status === 'active');
+  // Filter members eligible for taking loans (active members and not savings only)
+  const activeMembers = members.filter(m => m?.status === 'active' && m?.memberCategory !== 'savings_only');
 
   const handleIssueSubmit = (e: React.FormEvent) => {
     e.preventDefault();

@@ -10,6 +10,7 @@ export type Member = {
   targetInstallmentAmount: number; // expected installment amount
   status: 'active' | 'inactive';
   pin: string;
+  memberCategory?: 'savings_only' | 'borrower';
 };
 
 export type Installment = {
