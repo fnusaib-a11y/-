@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { getSavedData, saveAllData, ADMIN_PROFILE, INITIAL_MEMBERS, INITIAL_INSTALLMENTS, INITIAL_LOANS, INITIAL_NOTIFICATIONS } from './db';
-import { Member, Installment, Loan, TrashLog, AdminNotification, AppConfig, LedgerEntry, PinRequest, MonthlyExpense, CashVaultLog } from './types';
+import { Member, Installment, Loan, TrashLog, AdminNotification, AppConfig, LedgerEntry, PinRequest, MonthlyExpense, CashVaultLog, LoanRepayment } from './types';
 // @ts-ignore
 import associationLogo from './assets/images/association_logo_1780420505055.png';
 
@@ -46,6 +46,7 @@ export default function App() {
   const [pinRequests, setPinRequests] = useState<PinRequest[]>([]);
   const [monthlyExpenses, setMonthlyExpenses] = useState<MonthlyExpense[]>([]);
   const [cashVaultLogs, setCashVaultLogs] = useState<CashVaultLog[]>([]);
+  const [loanRepayments, setLoanRepayments] = useState<LoanRepayment[]>([]);
 
   const [appConfig, setAppConfig] = useState<AppConfig>({
     adminName: "মিজানুর রহমান",
@@ -219,6 +220,7 @@ export default function App() {
     let unsubscribePinRequests: (() => void) | null = null;
     let unsubscribeMonthlyExpenses: (() => void) | null = null;
     let unsubscribeCashVaultLogs: (() => void) | null = null;
+    let unsubscribeLoanRepayments: (() => void) | null = null;
 
     const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
       if (user) {
@@ -418,6 +420,19 @@ export default function App() {
       console.warn('Firestore cash vault logs read issue:', err);
     });
 
+    // 11. Listen to individual loan repayments
+    unsubscribeLoanRepayments = onSnapshot(collection(db, 'loan_repayments'), (snapshot) => {
+      const list: LoanRepayment[] = [];
+      snapshot.forEach(docSnap => {
+        list.push(docSnap.data() as LoanRepayment);
+      });
+      // Sort newest repayments first
+      list.sort((a, b) => b.date.localeCompare(a.date));
+      setLoanRepayments(list);
+    }, (err) => {
+      console.warn('Firestore loan repayments read issue:', err);
+    });
+
     const timer = setTimeout(() => {
       setIsLoading(false);
     }, 1500);
@@ -434,6 +449,7 @@ export default function App() {
       if (unsubscribePinRequests) unsubscribePinRequests();
       if (unsubscribeMonthlyExpenses) unsubscribeMonthlyExpenses();
       if (unsubscribeCashVaultLogs) unsubscribeCashVaultLogs();
+      if (unsubscribeLoanRepayments) unsubscribeLoanRepayments();
       clearTimeout(timer);
     };
   }, []);
@@ -733,9 +749,21 @@ export default function App() {
     }
     try {
       await setDoc(doc(db, 'installments', newInst.id), newInst);
+      
+      // Dynamically determine & update member's default installment settings
+      try {
+        const memberRef = doc(db, 'members', newInst.memberId);
+        await updateDoc(memberRef, {
+          type: newInst.type,
+          targetInstallmentAmount: newInst.amount
+        });
+      } catch (memberErr) {
+        console.warn('Could not update member installment parameters dynamically:', memberErr);
+      }
+
       const newNotif: AdminNotification = {
         id: `NOTIF-${Date.now()}`,
-        title: "কিস্তি কিস্তি জমা সংগৃহীত",
+        title: "কিস্তি জমা সংগৃহীত",
         message: `জমা রশিদ: ${newInst.id}, গ্রাহক: ${newInst.memberName}, পরিমাণ: ${newInst.amount} ৳।`,
         date: newInst.date,
         read: false
@@ -909,6 +937,21 @@ export default function App() {
 
     try {
       await setDoc(doc(db, 'loans', loanId), updatedLoan);
+
+      const repaymentId = `REPAY-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
+      const newRepayment: LoanRepayment = {
+        id: repaymentId,
+        loanId: targetLoan.id,
+        memberId: targetLoan.memberId,
+        memberName: targetLoan.memberName,
+        repayAmount: repayAmount,
+        principalPaid: principalPaid ?? repayAmount,
+        profitPaid: profitPaid ?? 0,
+        penaltyPaid: 0,
+        date: new Date().toISOString().split('T')[0],
+        installmentNo: installmentNo || ''
+      };
+      await setDoc(doc(db, 'loan_repayments', repaymentId), newRepayment);
       
       const installmentText = installmentNo ? ` (${installmentNo} কিস্তি)` : '';
       const breakdownText = (principalPaid !== undefined && profitPaid !== undefined)
@@ -1200,9 +1243,13 @@ export default function App() {
   const totalCashBalanceOfCoop = totalSavingsSum + totalLoansRecoveredPrincipal + customIncomeSum + customSurplusSum - totalLoansDisbursedPrincipal - customExpenseSum;
 
   const todayDateStr = new Date().toISOString().split('T')[0];
-  const todayCollectionsSum = installments
+  const todaySavingsCollectionsSum = installments
     .filter(i => i.date === todayDateStr)
     .reduce((sum, item) => sum + item.amount + (item.savingsAmount || 0), 0);
+  const todayLoanCollectionsSum = loanRepayments
+    .filter(r => r.date === todayDateStr)
+    .reduce((sum, item) => sum + item.repayAmount, 0);
+  const todayCollectionsSum = todaySavingsCollectionsSum + todayLoanCollectionsSum;
 
   // User-specific member dashboard logic
   const activeMember = members.find(m => m.id === currentMemberId);
@@ -1572,7 +1619,7 @@ export default function App() {
                   </div>
 
                   <div className={`bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 text-left space-y-1 shadowing-sm border-b-4 border-b-teal-500`}>
-                    <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 block uppercase tracking-wider">ঋণ আসল আদায়</span>
+                    <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 block uppercase tracking-wider">কিস্তি আদায় (আসল)</span>
                     <strong className="text-xl font-black text-teal-600 dark:text-teal-400 font-mono tracking-tight">{totalLoansRecoveredPrincipal} ৳</strong>
                     <div className="text-[9.5px] text-slate-400 font-sans">পুনরুদ্ধারকৃত আসল</div>
                   </div>
@@ -1580,7 +1627,7 @@ export default function App() {
                   <div className={`bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 text-left space-y-1 shadowing-sm border-b-4 border-b-amber-500`}>
                     <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 block uppercase tracking-wider">বকেয়া ঋণ (আসল)</span>
                     <strong className="text-xl font-black text-amber-600 dark:text-amber-400 font-mono tracking-tight">{totalLoansDueSum} ৳</strong>
-                    <div className="text-[9.5px] text-slate-400 font-sans">খেলাপি আসল আমানত</div>
+                    <div className="text-[9.5px] text-slate-400 font-sans">খেলাпи আসল আমানত</div>
                   </div>
 
                   <div className={`bg-white dark:bg-slate-900 p-4 rounded-2xl border border-rose-100 dark:border-rose-950 text-left space-y-1 shadowing-sm border-b-4 border-b-rose-500 bg-rose-50/10`}>
@@ -1591,7 +1638,7 @@ export default function App() {
 
                   {/* Separate Percentage Profit Folder Card */}
                   <div className={`bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 text-left space-y-1 shadowing-sm border-b-4 border-b-purple-500 bg-purple-50/5`}>
-                    <span className="text-[10px] font-bold text-purple-600 dark:text-purple-400 block uppercase tracking-wider">মুনাফা তহবিল</span>
+                    <span className="text-[10px] font-bold text-purple-600 dark:text-purple-400 block uppercase tracking-wider">মুনাফা আদায় (লাভ)</span>
                     <strong className="text-xl font-black text-purple-600 dark:text-purple-400 font-mono tracking-tight">{totalPercentageProfitSum} ৳</strong>
                     <div className="text-[9.5px] text-slate-400 font-sans">মুনাফার আলাদা ফোল্ডার</div>
                   </div>
@@ -1923,6 +1970,7 @@ export default function App() {
               loans={loans}
               role={currentRole}
               ledger={ledger}
+              loanRepayments={loanRepayments}
               onAddLedger={handleAddLedgerEntry}
               onDeleteLedger={handleDeleteLedgerEntry}
             />

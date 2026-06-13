@@ -861,51 +861,84 @@ export default function Loans({ members, loans, onAddLoan, onRepayLoan, onDelete
               />
             </div>
 
-            <div className="text-xs text-slate-500 flex flex-wrap items-center gap-x-4 gap-y-2 leading-relaxed">
-              <div>মোট ঋণ বিতরণ: <span className="font-bold text-slate-800 font-mono">{loans.reduce((sum, item) => sum + item.principalAmount, 0)} ৳</span></div>
-              <div>মোট আদায় ঋণ: <span className="font-bold text-emerald-600 font-mono">{loans.reduce((sum, item) => sum + item.repaidAmount, 0)} ৳</span></div>
-              <div className="bg-purple-50 text-purple-700 px-2 py-0.5 rounded border border-purple-100/80 flex items-center gap-1">
-                <span>আদায়কৃত মুনাফা (শতকরা লাভ):</span>
-                <span className="font-extrabold font-mono text-purple-900">{loans.reduce((sum, item) => sum + (item.profitRepaid || 0), 0)} ৳</span>
+            <div className="text-[11px] sm:text-xs text-slate-500 font-sans flex flex-wrap items-center gap-x-4 gap-y-2 leading-relaxed">
+              <div className="bg-slate-50 px-2.5 py-1 rounded border border-slate-200">
+                <span>মোট বিতরণকৃত লোন (আসল): </span>
+                <span className="font-bold text-slate-800 font-mono">
+                  {loans.reduce((sum, item) => sum + (item.originalPrincipal || (item.principalAmount - (item.profitAmount || 0))), 0)} ৳
+                </span>
               </div>
-              <div>বকেয়া ঋণ: <span className="font-bold text-rose-500 font-mono">{loans.reduce((sum, item) => sum + (item.principalAmount - item.repaidAmount), 0)} ৳</span></div>
-              <div className="text-[10px] text-slate-400 bg-slate-100 px-2 py-0.5 rounded">
-                (সম্ভাব্য মোট লাভ: <span className="font-semibold font-mono text-slate-600">{loans.reduce((sum, item) => {
-                  const orig = item.originalPrincipal || Math.round(item.principalAmount / 1.1);
-                  return sum + (item.profitAmount !== undefined ? item.profitAmount : (item.principalAmount - orig));
-                }, 0)} ৳</span>)
+              <div className="bg-purple-50 text-purple-700 px-2.5 py-1 rounded border border-purple-100/80">
+                <span>সম্ভাব্য মোট লোন মুনাফা: </span>
+                <span className="font-extrabold font-mono text-purple-950">
+                  {loans.reduce((sum, item) => sum + (item.profitAmount || 0), 0)} ৳
+                </span>
+              </div>
+              <div className="bg-emerald-50 text-emerald-800 px-2.5 py-1 rounded border border-emerald-100">
+                <span>মোট আদায় লোন (আসল): </span>
+                <span className="font-bold text-emerald-600 font-mono">
+                  {loans.reduce((sum, item) => sum + item.repaidAmount, 0)} ৳
+                </span>
+              </div>
+              <div className="bg-purple-50 text-purple-700 px-2.5 py-1 rounded border border-purple-150">
+                <span>মোট সংগৃহীত মুনাফা: </span>
+                <span className="font-extrabold font-mono text-purple-900">
+                  {loans.reduce((sum, item) => sum + (item.profitRepaid || 0), 0)} ৳
+                </span>
+              </div>
+              <div className="bg-rose-50 text-rose-700 px-2.5 py-1 rounded border border-rose-100">
+                <span>বকেয়া লোন (আসল): </span>
+                <span className="font-bold font-mono text-rose-600">
+                  {loans.reduce((sum, item) => {
+                    const orig = item.originalPrincipal || (item.principalAmount - (item.profitAmount || 0));
+                    return sum + (orig - item.repaidAmount);
+                  }, 0)} ৳
+                </span>
+              </div>
+              <div className="bg-rose-50 text-rose-700 px-2.5 py-1 rounded border border-rose-100">
+                <span>বকেয়া লোন মুনাফা: </span>
+                <span className="font-bold font-mono text-rose-600">
+                  {loans.reduce((sum, item) => {
+                    const prof = item.profitAmount || 0;
+                    return sum + (prof - (item.profitRepaid || 0));
+                  }, 0)} ৳
+                </span>
               </div>
             </div>
           </div>
         )}
 
         <div className="overflow-x-auto">
-          <table className="w-full border-collapse text-left text-xs">
+          <table className="w-full border-collapse text-left">
             <thead>
-              <tr className="bg-slate-100/50 text-slate-600 font-medium border-b border-slate-200">
-                <th className="p-4 w-16 text-center">সিরিয়াল নং</th>
-                <th className="p-4">ঋণ আইডি (ID)</th>
-                <th className="p-4">গ্রাহকের নাম ও আইডি</th>
-                <th className="p-4 flex items-center gap-1">বিতরণ ও মেয়াদ</th>
-                <th className="p-4">ঋণ ও লাভের হিসাব বিবরণী</th>
-                <th className="p-4">কিস্তি পরিশোধ অগ্রগতি (Paid vs Remaining)</th>
-                <th className="p-4">অবস্থা (Status)</th>
-                {role === 'admin' && <th className="p-4 text-center">ব্যবস্থাপনা</th>}
+              <tr className="border-b border-slate-100 text-[11px] font-bold text-slate-500 uppercase tracking-wider bg-slate-50/30">
+                <th className="p-4 w-16 text-center">ক্রম</th>
+                <th className="p-4">লোন আইডি</th>
+                <th className="p-4">গ্রাহক বিবরণী</th>
+                <th className="p-4">তারিখ খতিয়ান</th>
+                <th className="p-4">ঋণের খতিয়ান</th>
+                <th className="p-4">আদায় অগ্রগতি</th>
+                <th className="p-4">অবস্থা</th>
+                {role === 'admin' && <th className="p-4 text-center">অ্যাকশন</th>}
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 text-slate-700">
+            <tbody className="divide-y divide-slate-100">
               {displayedLoans.length > 0 ? (
                 displayedLoans.map((l, index) => {
-                  const originalPrincipal = l.originalPrincipal || Math.round(l.principalAmount / 1.1);
+                  const originalPrincipal = l.originalPrincipal || (l.principalAmount - (l.profitAmount || 0));
                   const interestPercent = l.interestPercent !== undefined ? l.interestPercent : 10;
                   const profitAmount = l.profitAmount !== undefined ? l.profitAmount : (l.principalAmount - originalPrincipal);
                   
-                  const remaining = l.principalAmount - l.repaidAmount;
-                  const payRatio = Math.min(100, Math.round((l.repaidAmount / l.principalAmount) * 100));
+                  const remainingPrincipal = originalPrincipal - l.repaidAmount;
+                  const remainingProfit = profitAmount - (l.profitRepaid || 0);
+                  const remaining = remainingPrincipal + remainingProfit;
+                  
+                  const payRatio = Math.min(100, Math.round((l.repaidAmount / originalPrincipal) * 100));
+                  const profitPayRatio = profitAmount > 0 ? Math.min(100, Math.round(((l.profitRepaid || 0) / profitAmount) * 100)) : 100;
 
                   const estSingleAmt = l.installmentAmount || Math.round(l.principalAmount / 12);
-                  const paidInstNo = Math.round(l.repaidAmount / estSingleAmt);
-                  const totalInstNo = Math.round(l.principalAmount / estSingleAmt);
+                  const paidInstNo = Math.round((l.repaidAmount + (l.profitRepaid || 0)) / estSingleAmt);
+                  const totalInstNo = Math.round(l.principalAmount / estSingleAmt) || 12;
                   
                   return (
                     <tr key={l.id} className="hover:bg-slate-50/80 transition-colors">
@@ -937,22 +970,31 @@ export default function Loans({ members, loans, onAddLoan, onRepayLoan, onDelete
                         </div>
                       </td>
                       <td className="p-4 space-y-2 min-w-[210px] text-left font-sans">
-                        <div className="flex justify-between items-center text-[10px] sm:text-xs">
-                          <span className="text-emerald-700 font-bold">আদায়: {l.repaidAmount} ৳ ({payRatio}%)</span>
-                          <span className="bg-emerald-50 text-emerald-800 px-1.5 py-0.5 rounded font-bold font-sans">
-                            {toBengaliDigits(paidInstNo)}/{toBengaliDigits(totalInstNo)} কিস্তি
-                          </span>
-                          <span className="text-rose-600 font-bold">বাকি: {remaining} ৳ ({100 - payRatio}%)</span>
+                        {/* Principal (আসল) Progress */}
+                        <div className="space-y-0.5">
+                          <div className="flex justify-between items-center text-[10px]">
+                            <span className="text-emerald-700 font-bold">আসল আদায়: {l.repaidAmount}/{originalPrincipal} ৳</span>
+                            <span className="text-slate-500 font-mono text-[9px]">({payRatio}%)</span>
+                          </div>
+                          <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden border border-slate-200">
+                            <div className="bg-emerald-500 h-full rounded-full transition-all duration-500" style={{ width: `${payRatio}%` }}></div>
+                          </div>
                         </div>
-                        
-                        {/* Progress slider bar */}
-                        <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden border border-slate-200">
-                          <div className="bg-emerald-500 h-full rounded-full transition-all duration-500" style={{ width: `${payRatio}%` }}></div>
+
+                        {/* Profit (মুনাফা) Progress */}
+                        <div className="space-y-0.5">
+                          <div className="flex justify-between items-center text-[10px]">
+                            <span className="text-purple-700 font-bold">মুনাফা আদায়: {l.profitRepaid || 0}/{profitAmount} ৳</span>
+                            <span className="text-slate-500 font-mono text-[9px]">({profitPayRatio}%)</span>
+                          </div>
+                          <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden border border-slate-200">
+                            <div className="bg-purple-500 h-full rounded-full transition-all duration-300" style={{ width: `${profitPayRatio}%` }}></div>
+                          </div>
                         </div>
-                        
-                        <div className="text-[10px] text-slate-500 flex flex-col gap-0.5 leading-tight">
-                          <span>• প্রতি কিস্তি পরিমাণ: <strong className="font-mono text-slate-800">{l.installmentAmount} ৳</strong></span>
-                          <span>• পরিশোধিত কিস্তি: <strong className="text-emerald-600">{toBengaliDigits(paidInstNo)}টি</strong>, অবশিষ্টাংশ: <strong className="text-rose-500">{toBengaliDigits(Math.max(0, totalInstNo - paidInstNo))}টি</strong></span>
+
+                        <div className="text-[10px] text-slate-500 pt-1 border-t border-slate-150 flex justify-between">
+                          <span>মোট বাকি: <strong className="text-rose-600 font-mono">{remaining} ৳</strong></span>
+                          <span>পরিশোধিত কিস্তি: <strong className="text-slate-700">{toBengaliDigits(paidInstNo)}টি</strong></span>
                         </div>
                       </td>
                       <td className="p-4 text-left">
@@ -1002,7 +1044,7 @@ export default function Loans({ members, loans, onAddLoan, onRepayLoan, onDelete
                 })
               ) : (
                 <tr>
-                  <td colSpan={7} className="text-center p-8 text-slate-400 font-sans">
+                  <td colSpan={8} className="text-center p-8 text-slate-400 font-sans">
                     কোনো সক্রিয় ঋণ নথি পাওয়া যায়নি।
                   </td>
                 </tr>

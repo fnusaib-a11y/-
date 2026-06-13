@@ -47,14 +47,14 @@ export default function MemberManagement({ members, onAddMember, onUpdateMember,
   const [address, setAddress] = useState('');
   const [nid, setNid] = useState('');
   const [type, setType] = useState<'daily' | 'weekly' | 'monthly'>('weekly');
-  const [targetAmount, setTargetAmount] = useState('500');
+  const [targetAmount, setTargetAmount] = useState('0');
   const [pin, setPin] = useState('');
   const [status, setStatus] = useState<'active' | 'inactive'>('active');
   const [photoUrl, setPhotoUrl] = useState('');
   const [memberCategory, setMemberCategory] = useState<'savings_only' | 'borrower'>('savings_only');
 
   // List filter state
-  const [listCategory, setListCategory] = useState<'all' | 'savings_only' | 'borrower'>('all');
+  const [listCategory, setListCategory] = useState<'all' | 'savings_only' | 'borrower'>('savings_only');
 
   // Camera & Upload auxiliary states
   const [showWebcam, setShowWebcam] = useState(false);
@@ -88,7 +88,7 @@ export default function MemberManagement({ members, onAddMember, onUpdateMember,
     setAddress('');
     setNid('');
     setType('weekly');
-    setTargetAmount('500');
+    setTargetAmount('0');
     setPin('');
     setStatus('active');
     setPhotoUrl('');
@@ -464,31 +464,6 @@ export default function MemberManagement({ members, onAddMember, onUpdateMember,
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1">কিস্তির ধরন *</label>
-                <select
-                  value={type}
-                  onChange={(e) => setType(e.target.value as any)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 outline-none"
-                >
-                  <option value="daily">দৈনিক কিস্তি (Daily)</option>
-                  <option value="weekly">সাপ্তাহিক কিস্তি (Weekly)</option>
-                  <option value="monthly">মাসিক কিস্তি (Monthly)</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1">নির্ধারিত কিস্তির পরিমাণ (টাকা) *</label>
-                <input
-                  type="number"
-                  required
-                  placeholder="যেমন: ৫০০"
-                  value={targetAmount}
-                  onChange={(e) => setTargetAmount(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-mono focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 outline-none"
-                />
-              </div>
-
-              <div>
                 <label className="block text-xs font-medium text-slate-600 mb-1">সদস্য লগইন পিন (PIN) *</label>
                 <input
                   type="password"
@@ -696,21 +671,6 @@ export default function MemberManagement({ members, onAddMember, onUpdateMember,
                 <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-mono font-black ${
                   listCategory === 'borrower' ? 'bg-blue-100 text-blue-800' : 'bg-slate-150 text-slate-600'
                 }`}>{members.filter(m => (m.memberCategory || 'borrower') === 'borrower').length}</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setListCategory('all')}
-                className={`pb-3 pt-2 px-4 text-xs font-bold border-b-2 transition-all relative flex items-center gap-1.5 cursor-pointer ${
-                  listCategory === 'all'
-                    ? 'border-slate-800 text-slate-900'
-                    : 'border-transparent text-slate-500 hover:text-slate-800'
-                }`}
-              >
-                <span>👥 সকল সদস্য</span>
-                <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-mono font-black ${
-                  listCategory === 'all' ? 'bg-slate-800 text-white animate-pulse' : 'bg-slate-150 text-slate-600'
-                }`}>{members.length}</span>
               </button>
             </div>
 

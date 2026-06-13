@@ -74,6 +74,7 @@ export default function Installments({ members, installments, onAddInstallment, 
   const [savingsAmount, setSavingsAmount] = useState('');
   const [savingsPercent, setSavingsPercent] = useState('0');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  const [instType, setInstType] = useState<'daily' | 'weekly' | 'monthly'>('weekly');
 
   // Clean selections
   const activeMembers = members.filter(m => m?.status === 'active');
@@ -84,9 +85,11 @@ export default function Installments({ members, installments, onAddInstallment, 
     setMemberId(id);
     const m = members.find(x => x.id === id);
     if (m) {
-      setAmount(m.targetInstallmentAmount.toString());
+      setAmount(m.targetInstallmentAmount ? m.targetInstallmentAmount.toString() : '');
+      setInstType(m.type || 'weekly');
     } else {
       setAmount('');
+      setInstType('weekly');
     }
   };
 
@@ -115,7 +118,7 @@ export default function Installments({ members, installments, onAddInstallment, 
       savingsPercent: pct,
       profitAmount: computedSavingsProfit,
       date,
-      type: currentMember.type
+      type: instType
     };
 
     onAddInstallment(newInst);
@@ -283,6 +286,24 @@ export default function Installments({ members, installments, onAddInstallment, 
                     onChange={(e) => setDate(e.target.value)}
                     className="w-full bg-transparent border-none outline-none text-xs sm:text-sm font-semibold text-slate-800 font-sans cursor-pointer"
                   />
+                </div>
+              </div>
+
+              {/* কিস্তির ধরন (Installment Type) */}
+              <div className="space-y-1 text-left">
+                <label className="block text-xs font-bold text-slate-700">কিস্তির ধরন</label>
+                <div className="relative flex items-center bg-white border border-slate-200 hover:border-slate-300 focus-within:border-emerald-500 rounded-2xl px-3.5 py-3 transition-all shadow-sm">
+                  <select
+                    required
+                    value={instType}
+                    onChange={(e) => setInstType(e.target.value as any)}
+                    className="w-full bg-transparent border-none outline-none text-xs sm:text-sm font-semibold text-slate-800 cursor-pointer appearance-none pr-6 font-sans"
+                  >
+                    <option value="daily">দৈনিক কিস্তি (Daily)</option>
+                    <option value="weekly">সাপ্তাহিক কিস্তি (Weekly)</option>
+                    <option value="monthly">মাসিক কিস্তি (Monthly)</option>
+                  </select>
+                  <span className="absolute right-3.5 pointer-events-none text-slate-400 text-[10px]">▼</span>
                 </div>
               </div>
 

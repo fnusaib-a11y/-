@@ -117,3 +117,16 @@ export type CashVaultLog = {
   note?: string;
 };
 
+export type LoanRepayment = {
+  id: string;
+  loanId: string;
+  memberId: string;
+  memberName: string;
+  repayAmount: number; // total = principal + profit + penalty
+  principalPaid: number;
+  profitPaid: number;
+  penaltyPaid: number;
+  date: string;
+  installmentNo?: string;
+};
+

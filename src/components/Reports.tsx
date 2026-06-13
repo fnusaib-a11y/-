@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Member, Installment, Loan, LedgerEntry } from '../types';
+import { Member, Installment, Loan, LedgerEntry, LoanRepayment } from '../types';
 import { Download, Search, Printer, Calendar, FileText, CheckCircle, TrendingUp, AlertTriangle, ArrowUpRight, ArrowDownRight, Wallet } from 'lucide-react';
 import { ADMIN_PROFILE } from '../db';
 import { downloadPdf } from '../utils/pdfHelper';
@@ -10,11 +10,12 @@ interface ReportsProps {
   loans: Loan[];
   role: 'admin' | 'owner' | 'member';
   ledger: LedgerEntry[];
+  loanRepayments?: LoanRepayment[];
   onAddLedger: (entry: LedgerEntry) => void;
   onDeleteLedger: (id: string) => void;
 }
 
-export default function Reports({ members, installments, loans, role, ledger, onAddLedger, onDeleteLedger }: ReportsProps) {
+export default function Reports({ members, installments, loans, role, ledger, loanRepayments = [], onAddLedger, onDeleteLedger }: ReportsProps) {
   const [activeReportTab, setActiveReportTab] = useState<'collection' | 'due' | 'profit_loss' | 'summary'>('summary');
   const [targetDate, setTargetDate] = useState(new Date().toISOString().split('T')[0]);
   const [targetMonth, setTargetMonth] = useState('2026-06');
@@ -58,7 +59,11 @@ export default function Reports({ members, installments, loans, role, ledger, on
 
   // Daily collection calculations
   const dailyInstallments = installments.filter(i => i.date === targetDate);
-  const dailyTotalAmount = dailyInstallments.reduce((sum, item) => sum + item.amount + (item.savingsAmount || 0), 0);
+  const dailyRepayments = (loanRepayments || []).filter(r => r.date === targetDate);
+  
+  const dailySavingsTotalAmount = dailyInstallments.reduce((sum, item) => sum + item.amount + (item.savingsAmount || 0), 0);
+  const dailyLoansTotalAmount = dailyRepayments.reduce((sum, item) => sum + item.repayAmount, 0);
+  const dailyTotalAmount = dailySavingsTotalAmount + dailyLoansTotalAmount;
 
   // Installment Due warnings calculation
   // Basic Algorithm: For each active member, check if they have paid in the selected month
@@ -318,31 +323,65 @@ export default function Reports({ members, installments, loans, role, ledger, on
             <table className="w-full border-collapse text-left text-xs">
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-200 text-slate-500">
-                  <th className="p-4">রশিদ নং</th>
+                  <th className="p-4">রসিদ / ট্রানজেকশন নং</th>
                   <th className="p-4">সদস্যের নাম ও আইডি</th>
-                  <th className="p-4">কিস্তির টাইপ</th>
-                  <th className="p-4">আদায়কৃত সঞ্চয়</th>
+                  <th className="p-4">ধরণ ও কিস্তি</th>
+                  <th className="p-4 text-emerald-600">আদায়কৃত সঞ্চয়</th>
+                  <th className="p-4 text-teal-600">আসল আদায় (কিস্তি)</th>
+                  <th className="p-4 text-purple-600">মুনাফা আদায় (লাভ)</th>
+                  <th className="p-4 font-bold text-slate-800">মোট আদায়</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
-                {dailyInstallments.length > 0 ? (
-                  dailyInstallments.map((item) => (
-                    <tr key={item.id}>
-                      <td className="p-4 font-mono font-semibold">{item.id}</td>
-                      <td className="p-4">
-                        <strong>{item.memberName}</strong>
-                        <span className="text-[10px] text-slate-400 block font-mono">ID: {item.memberId}</span>
-                      </td>
-                      <td className="p-4 uppercase font-semibold text-[10px] text-slate-500">
-                        {item.type === 'daily' ? 'দৈনিক' : item.type === 'weekly' ? 'সাপ্তাহিক' : 'মাসিক'}
-                      </td>
-                      <td className="p-4 font-mono font-bold text-emerald-600">+{item.amount} ৳</td>
-                    </tr>
-                  ))
+              <tbody className="divide-y divide-slate-100 font-sans">
+                {dailyInstallments.length > 0 || dailyRepayments.length > 0 ? (
+                  <>
+                    {/* Render Savings Deposits */}
+                    {dailyInstallments.map((item) => {
+                      const total = item.amount + (item.savingsAmount || 0) + (item.profitAmount || 0);
+                      return (
+                        <tr key={item.id} className="hover:bg-slate-50/50">
+                          <td className="p-4 font-mono font-semibold text-slate-700">{item.id}</td>
+                          <td className="p-4">
+                            <strong className="text-slate-900">{item.memberName}</strong>
+                            <span className="text-[10px] text-slate-400 block font-mono">ID: {item.memberId}</span>
+                          </td>
+                          <td className="p-4">
+                            <span className="px-2 py-0.5 text-[10px] rounded-full bg-blue-50 text-blue-700 font-bold">
+                              সঞ্চয় জমা ({item.type === 'daily' ? 'দৈনিক' : item.type === 'weekly' ? 'সাপ্তাহিক' : 'মাসিক'})
+                            </span>
+                          </td>
+                          <td className="p-4 font-mono font-bold text-emerald-600">+{item.amount + (item.savingsAmount || 0)} ৳</td>
+                          <td className="p-4 font-mono text-slate-400">০ ৳</td>
+                          <td className="p-4 font-mono text-purple-650">+{item.profitAmount || 0} ৳</td>
+                          <td className="p-4 font-mono font-black text-slate-800">{total} ৳</td>
+                        </tr>
+                      );
+                    })}
+                    
+                    {/* Render Loan Repayments */}
+                    {dailyRepayments.map((item) => (
+                      <tr key={item.id} className="hover:bg-slate-50/50">
+                        <td className="p-4 font-mono font-semibold text-slate-700">{item.id}</td>
+                        <td className="p-4">
+                          <strong className="text-slate-900">{item.memberName}</strong>
+                          <span className="text-[10px] text-slate-400 block font-mono">ID: {item.memberId}</span>
+                        </td>
+                        <td className="p-4">
+                          <span className="px-2 py-0.5 text-[10px] rounded-full bg-purple-50 text-purple-700 font-bold">
+                            ঋণ আদায় {item.installmentNo ? `(${item.installmentNo})` : ''}
+                          </span>
+                        </td>
+                        <td className="p-4 font-mono text-slate-400">০ ৳</td>
+                        <td className="p-4 font-mono font-bold text-teal-600">+{item.principalPaid} ৳</td>
+                        <td className="p-4 font-mono font-bold text-purple-600">+{item.profitPaid} ৳</td>
+                        <td className="p-4 font-mono font-black text-slate-800">{item.repayAmount} ৳</td>
+                      </tr>
+                    ))}
+                  </>
                 ) : (
                   <tr>
-                    <td colSpan={4} className="text-center p-8 text-slate-400">
-                      এই তারিখে কোনো কিস্তি জমার এন্ট্রি নেই।
+                    <td colSpan={7} className="text-center p-8 text-slate-400">
+                      এই তারিখে কোনো আদায় বা কালেকশনের এন্ট্রি নেই।
                     </td>
                   </tr>
                 )}

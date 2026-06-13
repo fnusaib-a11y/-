@@ -1,10 +1,10 @@
 {
-  "projectId": "somiti-320a3",
-  "appId": "1:1091049858206:web:a2ac386a4ce7fb0190c78f",
-  "apiKey": "AIzaSyDAAkQ5xkRuFzc23bgrQveY9m1L_ZuyFig",
-  "authDomain": "somiti-320a3.firebaseapp.com",
-  "storageBucket": "somiti-320a3.firebasestorage.app",
-  "messagingSenderId": "1091049858206",
-  "measurementId": "G-34VFZJ16LS",
-  "databaseURL": "https://somiti-320a3-default-rtdb.firebaseio.com"
+  "projectId": "somiti-851ad",
+  "appId": "1:579289683348:web:f05cd92507cdd9c0822b81",
+  "apiKey": "AIzaSyA-xO0vjmF-uQkydAER4AmnHhCSI-oeuTk",
+  "authDomain": "somiti-851ad.firebaseapp.com",
+  "storageBucket": "somiti-851ad.firebasestorage.app",
+  "messagingSenderId": "579289683348",
+  "measurementId": "G-KFFEGRCHLD",
+  "databaseURL": "https://somiti-851ad-default-rtdb.firebaseio.com"
 }

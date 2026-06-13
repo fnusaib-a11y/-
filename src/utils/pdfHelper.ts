@@ -271,7 +271,7 @@ export const downloadPdf = async (elementId: string, filename: string, title?: s
     
     if (!isIdCard) {
       clone.style.backgroundColor = '#ffffff';
-      clone.style.color = '#0f172a';
+      clone.style.color = '#000000';
     } else {
       clone.style.backgroundColor = 'transparent';
     }
@@ -280,7 +280,85 @@ export const downloadPdf = async (elementId: string, filename: string, title?: s
     const ctrlButtons = clone.querySelectorAll('button, a, .no-print');
     ctrlButtons.forEach(btn => ((btn as HTMLElement).style.display = 'none'));
 
-    // Strip inline styles which might have color formatting
+    // Helper to recursively make clone high-contrast monochrome & black-and-white print safe
+    const convertToMonochrome = (el: HTMLElement) => {
+      // 1. Remove background gradients
+      if (el.style.backgroundImage || el.style.background) {
+        el.style.backgroundImage = 'none';
+        el.style.background = 'none';
+      }
+      
+      // 2. Map Tailwind colorful bg classes to black, white or clean grey values
+      const classesToRemove = [
+        'bg-emerald-500', 'bg-emerald-600', 'bg-emerald-700', 'bg-emerald-50', 'bg-emerald-100',
+        'bg-teal-500', 'bg-teal-600', 'bg-teal-700', 'bg-teal-50', 'bg-teal-100',
+        'bg-amber-500', 'bg-amber-600', 'bg-amber-150', 'bg-amber-100', 'bg-amber-50',
+        'bg-blue-500', 'bg-blue-600', 'bg-blue-50', 'bg-blue-100',
+        'bg-purple-100', 'bg-purple-600', 'bg-purple-50', 'bg-purple-700',
+        'bg-indigo-500', 'bg-indigo-600', 'bg-slate-900', 'bg-slate-800'
+      ];
+      classesToRemove.forEach(cls => {
+        if (el.classList.contains(cls)) {
+          el.classList.remove(cls);
+          if (cls.includes('500') || cls.includes('600') || cls.includes('700') || cls.includes('900') || cls.includes('800')) {
+            el.classList.add('bg-neutral-800');
+            el.classList.add('text-white');
+          } else {
+            el.classList.add('bg-neutral-100');
+            el.classList.add('text-black');
+            el.style.borderColor = '#94a3b8';
+          }
+        }
+      });
+
+      // 3. Remove text classes
+      const textColorsToRemove = [
+        'text-emerald-500', 'text-emerald-600', 'text-emerald-700', 'text-emerald-800', 'text-emerald-900',
+        'text-teal-500', 'text-teal-600', 'text-teal-700', 'text-teal-800', 'text-teal-900',
+        'text-blue-500', 'text-blue-600', 'text-blue-700', 'text-blue-800',
+        'text-amber-500', 'text-amber-600', 'text-amber-700', 'text-amber-800',
+        'text-purple-500', 'text-purple-600', 'text-purple-700',
+        'text-slate-500', 'text-slate-600', 'text-slate-700'
+      ];
+      textColorsToRemove.forEach(cls => {
+        if (el.classList.contains(cls)) {
+          el.classList.remove(cls);
+          el.classList.add('text-black');
+        }
+      });
+
+      // 4. Force monochrome filters and custom colors
+      el.style.filter = 'grayscale(100%) contrast(1.15)';
+      
+      if (el.tagName.toLowerCase() === 'img') {
+        el.style.filter = 'grayscale(100%)';
+      }
+
+      // If it is SVG, force black fill and stroke if they are not none
+      if (el.tagName.toLowerCase() === 'svg' || el.tagName.toLowerCase() === 'path') {
+        const fillVal = el.getAttribute('fill');
+        if (fillVal && fillVal !== 'none' && fillVal !== 'transparent') {
+          el.setAttribute('fill', '#000000');
+        }
+        const strokeVal = el.getAttribute('stroke');
+        if (strokeVal && strokeVal !== 'none' && strokeVal !== 'transparent') {
+          el.setAttribute('stroke', '#000000');
+        }
+        el.style.color = '#000000';
+      }
+
+      for (let i = 0; i < el.children.length; i++) {
+        const child = el.children[i];
+        if (child instanceof HTMLElement) {
+          convertToMonochrome(child);
+        }
+      }
+    };
+
+    // Run convertToMonochrome on the clone recursively
+    convertToMonochrome(clone);
+
+    // Strip inline styles which might have color formatting as additional fallback
     sanitizeElementStyles(clone);
 
     container.appendChild(clone);
