@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Member, Loan } from '../types';
-import { Landmark, Search, PlusCircle, Printer, X, Receipt, HandCoins, TrendingUp, Calendar, AlertTriangle, ArrowLeft, User, DollarSign, Percent, Hash, Check, Gavel, Banknote, Trash2, ShieldAlert, AlertCircle } from 'lucide-react';
+import { Landmark, Search, PlusCircle, Printer, X, Receipt, HandCoins, TrendingUp, Calendar, AlertTriangle, ArrowLeft, User, DollarSign, Percent, Hash, Check, Gavel, Banknote, Trash2, ShieldAlert, AlertCircle, Wallet } from 'lucide-react';
 
 // Helper to convert standard numbers to Bengali digits
 const toBengaliDigits = (num: number | string) => {
@@ -17,7 +17,9 @@ interface LoansProps {
     repayAmount: number, 
     installmentNo?: string, 
     principalPaid?: number, 
-    profitPaid?: number
+    profitPaid?: number,
+    penaltyPaid?: number,
+    savingsPaid?: number
   ) => void;
   onDeleteLoan?: (id: string) => void;
   role: 'admin' | 'owner' | 'member';
@@ -52,6 +54,7 @@ export default function Loans({ members, loans, onAddLoan, onRepayLoan, onDelete
   const [repayPrincipalAmount, setRepayPrincipalAmount] = useState('');
   const [repayProfitAmount, setRepayProfitAmount] = useState('');
   const [repayPenaltyAmount, setRepayPenaltyAmount] = useState('0');
+  const [repaySavingsAmount, setRepaySavingsAmount] = useState('0');
 
   // Loan Issue form fields
   const [memberId, setMemberId] = useState('');
@@ -147,10 +150,11 @@ export default function Loans({ members, loans, onAddLoan, onRepayLoan, onDelete
     const principal = parseFloat(repayPrincipalAmount) || 0;
     const profit = parseFloat(repayProfitAmount) || 0;
     const fine = parseFloat(repayPenaltyAmount) || 0;
-    const totalAmount = principal + profit + fine;
+    const savings = parseFloat(repaySavingsAmount) || 0;
+    const totalAmount = principal + profit + fine + savings;
 
     if (!selectedRepayLoan || totalAmount <= 0) {
-      showAlert('তথ্য ত্রুটি!', 'দয়া করে কিস্তির সঠিক আসল এবং লাভ পরিমাণ দিন!');
+      showAlert('তথ্য ত্রুটি!', 'দয়া করে পরিশোধের সঠিক পরিমাণ প্রবেশ করান!');
       return;
     }
 
@@ -160,17 +164,19 @@ export default function Loans({ members, loans, onAddLoan, onRepayLoan, onDelete
       return;
     }
 
-    // Capture fine in the installment text so it saves/syncs seamlessly in ledger/notifications
+    // Capture fine and savings in the installment text so it saves/syncs seamlessly
     const fineText = fine > 0 ? `। জরিমানা: ${fine} ৳` : '';
-    const finalInstLabel = `${repayInstallmentNo}${fineText}`;
+    const savingsText = savings > 0 ? `। সঞ্চয়: ${savings} ৳` : '';
+    const finalInstLabel = `${repayInstallmentNo}${fineText}${savingsText}`;
 
-    onRepayLoan(selectedRepayLoan.id, totalAmount, finalInstLabel, principal, profit + fine);
+    onRepayLoan(selectedRepayLoan.id, totalAmount, finalInstLabel, principal, profit, fine, savings);
     setIsRepaying(false);
     setSelectedRepayLoan(null);
     setRepayInstallmentNo('');
     setRepayPrincipalAmount('');
     setRepayProfitAmount('');
     setRepayPenaltyAmount('0');
+    setRepaySavingsAmount('0');
   };
 
   // Bengali Month translator and date formatter
@@ -715,7 +721,7 @@ export default function Loans({ members, loans, onAddLoan, onRepayLoan, onDelete
                     <label className="absolute top-0 left-3 bg-white px-1.5 text-[10px] font-bold text-slate-400 z-10 rounded select-none">
                       লাভের টাকা (প্রয়োজন হলে)
                     </label>
-                    <div className="flex items-center bg-white border border-slate-200 focus-within:border-emerald-500 rounded-xl px-3 py-2.5 shadow-sm transition-all">
+                    <div className="flex items-center bg-white border border-slate-200 focus-within:border-emerald-500 rounded-xl px-3 py-2.5 shadow-sm transition-all animate-pulse">
                       <Percent className="h-4 w-4 text-slate-400 mr-2 shrink-0" />
                       <input
                         type="number"
@@ -723,6 +729,24 @@ export default function Loans({ members, loans, onAddLoan, onRepayLoan, onDelete
                         value={repayProfitAmount}
                         onChange={(e) => setRepayProfitAmount(e.target.value)}
                         className="w-full bg-transparent border-none outline-none text-xs sm:text-sm font-semibold text-slate-700 font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  {/* ঋণ গ্রহিতার সঞ্চয় (Borrower's Savings) - Explicitly required by User */}
+                  <div className="relative pt-2">
+                    <label className="absolute top-0 left-3 bg-white px-1.5 text-[10px] font-bold text-emerald-600 z-10 rounded select-none">
+                      ঋণ গ্রহিতার সঞ্চয়
+                    </label>
+                    <div className="flex items-center bg-white border border-emerald-200 focus-within:border-emerald-500 rounded-xl px-3 py-2.5 shadow-sm transition-all">
+                      <Wallet className="h-4 w-4 text-emerald-500 mr-2 shrink-0 animate-pulse" />
+                      <input
+                        type="number"
+                        required
+                        placeholder="যেমনঃ ১০০"
+                        value={repaySavingsAmount}
+                        onChange={(e) => setRepaySavingsAmount(e.target.value)}
+                        className="w-full bg-transparent border-none outline-none text-xs sm:text-sm font-semibold text-emerald-800 font-mono"
                       />
                     </div>
                   </div>
@@ -739,7 +763,7 @@ export default function Loans({ members, loans, onAddLoan, onRepayLoan, onDelete
                         <span>{(parseFloat(repayPrincipalAmount) || 0)} ৳</span>
                       </div>
                       <div className="flex justify-between text-slate-300">
-                        <span>লাভের টাকা:</span>
+                        <span>লাভের টাকা (সার্ভিস লাভ):</span>
                         <span>{(parseFloat(repayProfitAmount) || 0)} ৳</span>
                       </div>
                       {parseFloat(repayPenaltyAmount) > 0 && (
@@ -748,9 +772,15 @@ export default function Loans({ members, loans, onAddLoan, onRepayLoan, onDelete
                           <span>+ {repayPenaltyAmount} ৳</span>
                         </div>
                       )}
+                      {parseFloat(repaySavingsAmount) > 0 && (
+                        <div className="flex justify-between text-emerald-450">
+                          <span>ঋণ গ্রহিতার সঞ্চয়:</span>
+                          <span>+ {repaySavingsAmount} ৳</span>
+                        </div>
+                      )}
                       <div className="flex justify-between pt-1 border-t border-slate-800 text-[#1d8df5] font-extrabold text-xs">
                         <span>সর্বমোট আদায় নগদ:</span>
-                        <span>{(parseFloat(repayPrincipalAmount) || 0) + (parseFloat(repayProfitAmount) || 0) + (parseFloat(repayPenaltyAmount) || 0)} ৳</span>
+                        <span>{(parseFloat(repayPrincipalAmount) || 0) + (parseFloat(repayProfitAmount) || 0) + (parseFloat(repayPenaltyAmount) || 0) + (parseFloat(repaySavingsAmount) || 0)} ৳</span>
                       </div>
                     </div>
                   </div>

@@ -96,8 +96,10 @@ export default function Reports({ members, installments, loans, role, ledger, lo
   const totalSavingsPercentProfitOfCoop = installments.reduce((sum, item) => sum + (item.profitAmount || 0), 0);
   const totalLoanPercentProfitOfCoop = loans.reduce((sum, item) => sum + (item.profitRepaid || 0), 0);
   const totalPercentageProfitSumOfCoop = totalSavingsPercentProfitOfCoop + totalLoanPercentProfitOfCoop;
+  const totalLoanPenaltiesOfCoop = loanRepayments.reduce((sum, item) => sum + (item.penaltyPaid || 0), 0);
 
-  const totalCashBalanceOfCoop = totalSavingsSumOfCoop + totalLoansRecoveredPrincipalOfCoop + customIncome + customSurplus - totalLoansDisbursedPrincipalOfCoop - customExpense;
+  // Net Cash Balance includes all collections (savings, loan principal repaid, loan interest profit, loan penalties, custom income/surplus) minus disbursements & expenses!
+  const totalCashBalanceOfCoop = totalSavingsSumOfCoop + totalLoansRecoveredPrincipalOfCoop + totalLoanPercentProfitOfCoop + totalLoanPenaltiesOfCoop + customIncome + customSurplus - totalLoansDisbursedPrincipalOfCoop - customExpense;
 
   // PRINT Trigger helper
   const handlePrintReport = (elementId: string, title: string) => {
@@ -655,15 +657,23 @@ export default function Reports({ members, installments, loans, role, ledger, lo
                       <div className="flex justify-between">
                         <span className="text-slate-400">মোট আদায়কৃত লোন আসল সংগ্রহ:</span>
                         <span className="font-mono text-emerald-400 font-bold">+{totalLoansRecoveredPrincipalOfCoop} ৳</span>
-                       </div>
-                       <div className="flex justify-between">
-                         <span className="text-slate-400">জরিমানা ও ভর্তি ফি বাবদ আদায়:</span>
-                         <span className="font-mono text-emerald-400 font-bold">+{customIncome} ৳</span>
-                       </div>
-                       <div className="flex justify-between">
-                         <span className="text-slate-400">অতিরিক্ত ক্যাশ উদ্বৃত্ত জমা:</span>
-                         <span className="font-mono text-emerald-400 font-bold">+{customSurplus} ৳</span>
-                       </div>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">মোট আদায়কৃত লোন মুনাফা (লাভ):</span>
+                        <span className="font-mono text-emerald-400 font-bold">+{totalLoanPercentProfitOfCoop} ৳</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">ঋণ গ্রহীতাদের কিস্তি জরিমানা আদায়:</span>
+                        <span className="font-mono text-emerald-400 font-bold">+{totalLoanPenaltiesOfCoop} ৳</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">সদস্য সঞ্চয় জরিমানা ও ভর্তি ফি বাবদ আদায়:</span>
+                        <span className="font-mono text-emerald-400 font-bold">+{customIncome} ৳</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">অতিরিক্ত ক্যাশ উদ্বৃত্ত জমা:</span>
+                        <span className="font-mono text-emerald-400 font-bold">+{customSurplus} ৳</span>
+                      </div>
                      </div>
 
                      <div className="space-y-1.5 md:pl-2">

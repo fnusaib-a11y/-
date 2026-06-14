@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Member, Installment } from '../types';
-import { PlusCircle, Search, Printer, Receipt, MessageSquare, Send, X, Calendar, User, DollarSign, Wallet, Download, ArrowLeft, Banknote, Gavel, Check, Trash2, ShieldAlert, AlertCircle, Percent } from 'lucide-react';
+import { PlusCircle, Search, Printer, Receipt, MessageSquare, Send, X, Calendar, User, DollarSign, Wallet, Download, ArrowLeft, Banknote, Check, Trash2, ShieldAlert, AlertCircle, Percent } from 'lucide-react';
 import { ADMIN_PROFILE } from '../db';
 import { downloadPdf } from '../utils/pdfHelper';
 
@@ -33,23 +33,33 @@ const getBengaliOrdinal = (n: number) => {
   return `${toBengaliDigits(n)}তম`;
 };
 
-// Helper to format English short month and date (e.g., "06 Mar")
-const formatExpectedDate = (dateStr: string) => {
-  try {
-    const d = new Date(dateStr);
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    const day = d.getDate().toString().padStart(2, '0');
-    const month = months[d.getMonth()];
-    return `${day} ${month}`;
-  } catch (e) {
-    return dateStr;
-  }
-};
-
 export default function Installments({ members, installments, onAddInstallment, onDeleteInstallment, role }: InstallmentsProps) {
   const [isAdding, setIsAdding] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedReceipt, setSelectedReceipt] = useState<Installment | null>(null);
+  const [savingsTab, setSavingsTab] = useState<'members' | 'history'>('members');
+
+  const getMemberTotalSavings = (mId: string) => {
+    return installments
+      .filter(i => i.memberId === mId)
+      .reduce((sum, item) => sum + item.amount + (item.savingsAmount || 0), 0);
+  };
+
+  const getMemberTotalProfit = (mId: string) => {
+    return installments
+      .filter(i => i.memberId === mId)
+      .reduce((sum, item) => sum + (item.profitAmount || 0), 0);
+  };
+
+  const handleQuickAddSavings = (mId: string) => {
+    setMemberId(mId);
+    const m = members.find(temp => temp.id === mId);
+    if (m) {
+      setAmount(m.targetInstallmentAmount.toString());
+      setInstType(m.type);
+    }
+    setIsAdding(true);
+  };
 
   // Modern React Modal state for robust iframe compatibility
   const [dialog, setDialog] = useState<{
@@ -79,6 +89,12 @@ export default function Installments({ members, installments, onAddInstallment, 
   // Clean selections
   const activeMembers = members.filter(m => m?.status === 'active');
   const selectedMember = members.find(m => m?.id === memberId);
+
+  const filteredMembersForSavings = members.filter(m => {
+    return (m.name || '').toLowerCase().includes(searchTerm.toLowerCase()) || 
+           (m.id || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+           (m.phone || '').toLowerCase().includes(searchTerm.toLowerCase());
+  });
 
   // Auto-fill amount based on member's preset target
   const handleMemberChange = (id: string) => {
@@ -146,13 +162,6 @@ export default function Installments({ members, installments, onAddInstallment, 
       instId.toLowerCase().includes(searchTerm.toLowerCase())
     );
   });
-
-  // Calculate total savings for a member helper
-  const getMemberTotalSavings = (mId: string) => {
-    return installments
-      .filter(i => i.memberId === mId)
-      .reduce((sum, item) => sum + item.amount + (item.savingsAmount || 0), 0);
-  };
 
   // Convert numbers to Bengali words (Professional banking notation)
   const numberToBanglaWords = (num: number) => {
@@ -405,141 +414,259 @@ export default function Installments({ members, installments, onAddInstallment, 
                     <strong className="font-mono">{(parseFloat(amount) || 0)} ৳</strong>
                   </div>
                   <div className="flex justify-between border-b border-emerald-200/50 pb-1">
-                    <span>অতিরিক্ত আমানত:</span>
+                    <span>অতিরিক্ত সঞ্চয় আমানত:</span>
                     <strong className="font-mono">{(parseFloat(savingsAmount) || 0)} ৳</strong>
                   </div>
-                  <div className="flex justify-between border-b border-emerald-200/50 pb-1 font-semibold text-emerald-800">
-                    <span>মোট সংগৃহীত সঞ্চয়:</span>
+                  {parseFloat(savingsPercent) > 0 && (
+                    <div className="flex justify-between border-b border-emerald-200/50 pb-1 text-teal-700 font-bold">
+                      <span>অর্জিত সঞ্চয় লভ্যাংশ ({savingsPercent}%):</span>
+                      <strong className="font-mono">+{Math.round(((parseFloat(amount) || 0) + (parseFloat(savingsAmount) || 0)) * (parseFloat(savingsPercent) / 100) * 100) / 100} ৳</strong>
+                    </div>
+                  )}
+                  <div className="flex justify-between pt-1 text-emerald-800 font-black text-xs">
+                    <span>সর্বমোট নগদ জমা:</span>
                     <strong className="font-mono">{(parseFloat(amount) || 0) + (parseFloat(savingsAmount) || 0)} ৳</strong>
-                  </div>
-                  <div className="flex justify-between border-b border-emerald-200/50 pb-1 text-slate-600">
-                    <span>মুনাফার শতকরা হার:</span>
-                    <strong className="font-mono">{(parseFloat(savingsPercent) || 0)} %</strong>
-                  </div>
-                  <div className="flex justify-between font-bold text-emerald-900">
-                    <span>সংগৃহীত সঞ্চয়ের মুনাফা/লভ্যাংশ:</span>
-                    <strong className="font-mono text-emerald-600">
-                      + {Math.round((((parseFloat(amount) || 0) + (parseFloat(savingsAmount) || 0)) * (parseFloat(savingsPercent) || 0) / 100) * 100) / 100} ৳
-                    </strong>
                   </div>
                 </div>
               )}
 
-              {/* Submit button at the bottom */}
-              <div className="pt-3">
-                <button
-                  type="submit"
-                  className="w-full bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl py-3.5 text-xs font-bold tracking-wider shadow-md text-center flex items-center justify-center cursor-pointer transition-transform active:scale-[0.99] font-sans"
-                >
-                  সঞ্চয় জমা সম্পন্ন করুন
-                </button>
-              </div>
-
+              <button
+                type="submit"
+                className="w-full py-3 sm:py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl font-bold text-xs sm:text-sm tracking-wide shadow-md hover:shadow-lg transition-all cursor-pointer flex items-center justify-center gap-1.5"
+              >
+                <PlusCircle className="h-4 w-4" />
+                সঞ্চয় জমা নিশ্চিত করুন
+              </button>
             </form>
           </div>
         </div>
       ) : (
-        /* Installment Collections List */
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-          <div className="p-4 bg-slate-50/50 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-3">
-            <div className="relative max-w-sm w-full">
-              <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400">
-                <Search className="h-4 w-4" />
-              </span>
-              <input
-                type="text"
-                placeholder="সদস্য স্লিপ বা রশিদ খুঁজুন"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-xs outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 animate-in"
-              />
-            </div>
-            <div className="text-xs text-slate-500">
-              মোট জমার পরিমাণ: <span className="font-bold text-emerald-600 font-mono">
-                {filteredInstallments.reduce((sum, item) => sum + item.amount, 0)} ৳
-              </span>
-            </div>
+        <>
+          {/* Advanced Sub-Tabs for Members aggregation vs Receipts List */}
+          <div className="flex bg-slate-100 p-1 rounded-xl mb-4 max-w-md">
+            <button
+              onClick={() => setSavingsTab('members')}
+              className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer text-center ${
+                savingsTab === 'members'
+                  ? 'bg-white text-emerald-700 shadow-sm'
+                  : 'text-slate-650 hover:text-slate-800'
+              }`}
+            >
+              📊 সদস্যভিত্তিক সঞ্চয় খাতা
+            </button>
+            <button
+              onClick={() => setSavingsTab('history')}
+              className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer text-center ${
+                savingsTab === 'history'
+                  ? 'bg-white text-emerald-700 shadow-sm'
+                  : 'text-slate-650 hover:text-slate-800'
+              }`}
+            >
+              🧾 রশিদ ও কিস্তি জমার তালিকা
+            </button>
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse text-left text-xs">
-              <thead>
-                <tr className="bg-slate-100/50 text-slate-600 font-medium border-b border-slate-200">
-                  <th className="p-4">রশিদ নং (Serial)</th>
-                  <th className="p-4">সদস্যের নাম</th>
-                  <th className="p-4">কিস্তির ধরণ</th>
-                  <th className="p-4">পেমেন্ট তারিখ</th>
-                  <th className="p-4">আদায়কৃত সঞ্চয় (টাকা)</th>
-                  <th className="p-4 text-center">রসিদ / স্লিপ</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 text-slate-700">
-                {filteredInstallments.length > 0 ? (
-                  filteredInstallments.map((i) => (
-                    <tr key={i.id} className="hover:bg-slate-50/80 transition-colors">
-                      <td className="p-4 font-mono font-bold text-slate-900">{i.id}</td>
-                      <td className="p-4">
-                        <div>
-                          <div className="font-semibold text-slate-800">{i.memberName}</div>
-                          <div className="text-[10px] text-slate-400 font-mono">ID: {i.memberId}</div>
-                        </div>
-                      </td>
-                      <td className="p-4">
-                        <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] ${
-                          i.type === 'daily' ? 'bg-amber-100 text-amber-800' :
-                          i.type === 'weekly' ? 'bg-teal-100 text-teal-800' : 'bg-purple-100 text-purple-800'
-                        }`}>
-                          {i.type === 'daily' ? 'দৈনিক' : i.type === 'weekly' ? 'সাপ্তাহিক' : 'মাসিক'}
-                        </span>
-                      </td>
-                      <td className="p-4 font-mono text-slate-600">{i.date}</td>
-                      <td className="p-4 font-mono text-emerald-600 font-bold text-sm">
-                        <div>+{i.amount + (i.savingsAmount || 0)} ৳</div>
-                        {i.savingsPercent !== undefined && i.savingsPercent > 0 && (
-                          <div className="text-[10px] text-teal-600 font-sans font-medium mt-0.5">
-                            মুনাফা: +{i.profitAmount || 0} ৳ ({i.savingsPercent}%)
-                          </div>
-                        )}
-                      </td>
-                      <td className="p-4">
-                        <div className="flex justify-center gap-1.5">
-                          <button
-                            onClick={() => setSelectedReceipt(i)}
-                            className="p-1 px-2 bg-slate-100 text-slate-700 border border-slate-200 rounded hover:bg-slate-200 flex items-center gap-1 cursor-pointer"
-                          >
-                            <Receipt className="h-3 w-3" />
-                            মানি রসিদ
-                          </button>
-                          {role === 'admin' && (
-                            <button
-                              onClick={() => {
-                                showConfirm(
-                                  'কিস্তি জমা ডিলিট',
-                                  'আপনি কি নিশ্চিত এই কিস্তি জমার তথ্যটি মুছতে চান? এটি রি-সাইকেল বিনে জমা হবে।',
-                                  () => onDeleteInstallment(i.id)
-                                );
-                              }}
-                              className="p-1 px-1.5 text-rose-600 hover:bg-rose-50 border border-rose-200 hover:border-rose-300 rounded cursor-pointer transition-all flex items-center justify-center gap-0.5"
-                              title="মুছুন"
-                            >
-                              <Trash2 className="h-3 w-3" />
-                            </button>
-                          )}
-                        </div>
-                      </td>
+          {savingsTab === 'members' ? (
+            /* Member-wise aggregated list - Resolves duplicate member listings! */
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+              <div className="p-4 bg-slate-50/50 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-3">
+                <div className="relative max-w-sm w-full">
+                  <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400">
+                    <Search className="h-4 w-4" />
+                  </span>
+                  <input
+                    type="text"
+                    placeholder="নাম, মোবাইল বা আইডি দিয়ে সদস্য খুঁজুন"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-xs outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
+                  />
+                </div>
+                <div className="text-xs text-slate-500 font-sans">
+                  সদস্য সংখ্যা: <span className="font-bold text-emerald-600 font-mono">{filteredMembersForSavings.length} জন</span>
+                </div>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse text-left text-xs bg-white">
+                  <thead>
+                    <tr className="bg-slate-100 text-slate-600 font-medium border-b border-slate-200">
+                      <th className="p-4">সদস্য আইডি</th>
+                      <th className="p-4">সদস্যের নাম ও মোবাইল</th>
+                      <th className="p-4">ক্যাটাগরি</th>
+                      <th className="p-4">কিস্তি ধরণ ও টার্গেট</th>
+                      <th className="p-4">মোট সঞ্চয় জমা</th>
+                      <th className="p-4 text-center">অ্যাকশন</th>
                     </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan={6} className="text-center p-8 text-slate-400 font-sans">
-                      কোনো আদায়ের রেকর্ড খুঁজে পাওয়া যায়নি।
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 text-slate-700">
+                    {filteredMembersForSavings.length > 0 ? (
+                      filteredMembersForSavings.map((m) => {
+                        const totalSavings = getMemberTotalSavings(m.id);
+                        const totalProfit = getMemberTotalProfit(m.id);
+                        return (
+                           <tr key={m.id} className="hover:bg-slate-50/85 transition-colors">
+                             <td className="p-4 font-mono font-bold text-slate-900">{m.id}</td>
+                             <td className="p-4">
+                               <div>
+                                 <div className="font-bold text-slate-800">{m.name}</div>
+                                 <div className="text-[10px] text-slate-400 font-mono">মোবাইল: {m.phone}</div>
+                               </div>
+                             </td>
+                             <td className="p-4">
+                               <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                                 m.memberCategory === 'borrower' ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'
+                               }`}>
+                                 {m.memberCategory === 'borrower' ? 'ঋণগ্রহীতা (Borrower)' : 'শুধু সঞ্চয়কারী'}
+                               </span>
+                             </td>
+                             <td className="p-4">
+                               <div>
+                                 <span className="text-[10px] text-slate-500 italic font-sans block">
+                                   {m.type === 'daily' ? 'দৈনিক' : m.type === 'weekly' ? 'সাপ্তাহিক' : 'মাসিক'}
+                                 </span>
+                                 <div className="font-extrabold text-slate-700 font-mono">{m.targetInstallmentAmount} ৳</div>
+                               </div>
+                             </td>
+                             <td className="p-4 font-mono text-emerald-600 font-black text-sm">
+                               <div>{totalSavings} ৳</div>
+                               {totalProfit > 0 && (
+                                 <div className="text-[10px] text-teal-600 font-sans font-medium mt-0.5">
+                                   লভ্যাংশ: +{totalProfit} ৳
+                                 </div>
+                               )}
+                             </td>
+                             <td className="p-4">
+                               <div className="flex justify-center gap-1.5">
+                                 {role === 'admin' && (
+                                   <button
+                                     onClick={() => handleQuickAddSavings(m.id)}
+                                     className="p-1 px-2 bg-emerald-50 text-emerald-700 border border-emerald-100 rounded hover:bg-emerald-100 flex items-center gap-1 cursor-pointer font-extrabold text-[10px]"
+                                   >
+                                     <PlusCircle className="h-3 w-3" />
+                                     জমা নেন
+                                   </button>
+                                 )}
+                               </div>
+                             </td>
+                           </tr>
+                        );
+                      })
+                    ) : (
+                      <tr>
+                        <td colSpan={6} className="text-center p-8 text-slate-400">
+                          কোনো সদস্যের সঞ্চয় তথ্য পাওয়া যায়নি!
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : (
+            /* Installment Collections List */
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+              <div className="p-4 bg-slate-50/50 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-3">
+                <div className="relative max-w-sm w-full">
+                  <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400">
+                    <Search className="h-4 w-4" />
+                  </span>
+                  <input
+                    type="text"
+                    placeholder="সদস্য স্লিপ বা রশিদ খুঁজুন"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-xs outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 animate-in"
+                  />
+                </div>
+                <div className="text-xs text-slate-500">
+                  মোট জমার পরিমাণ: <span className="font-bold text-emerald-600 font-mono">
+                    {filteredInstallments.reduce((sum, item) => sum + item.amount, 0)} ৳
+                  </span>
+                </div>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse text-left text-xs">
+                  <thead>
+                    <tr className="bg-slate-105-f5 text-slate-600 font-medium border-b border-slate-200">
+                      <th className="p-4">রশিদ নং (Serial)</th>
+                      <th className="p-4">সদস্যের নাম</th>
+                      <th className="p-4">কিস্তির ধরণ</th>
+                      <th className="p-4">পেমেন্ট তারিখ</th>
+                      <th className="p-4">আদায়কৃত সঞ্চয় (টাকা)</th>
+                      <th className="p-4 text-center">রসিদ / স্লিপ</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 text-slate-700">
+                    {filteredInstallments.length > 0 ? (
+                      filteredInstallments.map((i) => (
+                        <tr key={i.id} className="hover:bg-slate-50/80 transition-colors">
+                          <td className="p-4 font-mono font-bold text-slate-900">{i.id}</td>
+                          <td className="p-4">
+                            <div>
+                              <div className="font-semibold text-slate-800">{i.memberName}</div>
+                              <div className="text-[10px] text-slate-400 font-mono">ID: {i.memberId}</div>
+                            </div>
+                          </td>
+                          <td className="p-4">
+                            <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] ${
+                              i.type === 'daily' ? 'bg-amber-100 text-amber-800' :
+                              i.type === 'weekly' ? 'bg-teal-100 text-teal-800' : 'bg-purple-100 text-purple-800'
+                            }`}>
+                              {i.type === 'daily' ? 'দৈনিক' : i.type === 'weekly' ? 'sাপ্তাহিক' : 'মাসিক'}
+                            </span>
+                          </td>
+                          <td className="p-4 font-mono text-slate-600">{i.date}</td>
+                          <td className="p-4 font-mono text-emerald-600 font-bold text-sm">
+                            <div>+{i.amount + (i.savingsAmount || 0)} ৳</div>
+                            {i.savingsPercent !== undefined && i.savingsPercent > 0 && (
+                              <div className="text-[10px] text-teal-600 font-sans font-medium mt-0.5">
+                                মুনাফা: +{i.profitAmount || 0} ৳ ({i.savingsPercent}%)
+                              </div>
+                            )}
+                          </td>
+                          <td className="p-4">
+                            <div className="flex justify-center gap-1.5">
+                              <button
+                                onClick={() => setSelectedReceipt(i)}
+                                className="p-1 px-2 bg-slate-100 text-slate-700 border border-slate-200 rounded hover:bg-slate-200 flex items-center gap-1 cursor-pointer"
+                              >
+                                <Receipt className="h-3 w-3" />
+                                মানি রসিদ
+                              </button>
+                              {role === 'admin' && (
+                                <button
+                                  onClick={() => {
+                                    showConfirm(
+                                      'কিস্তি জমা ডিলিট',
+                                      'আপনি কি নিশ্চিত এই কিস্তি জমার তথ্যটি মুছতে চান? এটি রি-সাইকেল বিনে জমা হবে।',
+                                      () => onDeleteInstallment(i.id)
+                                    );
+                                  }}
+                                  className="p-1 px-1.5 text-rose-600 hover:bg-rose-50 border border-rose-200 hover:border-rose-300 rounded cursor-pointer transition-all flex items-center justify-center gap-0.5"
+                                  title="মুছুন"
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={6} className="text-center p-8 text-slate-400 font-sans">
+                          কোনো আদায়ের রেকর্ড খুঁজে পাওয়া যায়নি।
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </>
       )}
 
       {/* POS Style Receipt Modal */}
@@ -575,8 +702,8 @@ export default function Installments({ members, installments, onAddInstallment, 
                   </div>
                 </div>
                 <h3 className="text-md font-black text-emerald-800 tracking-tight leading-normal">ক্ষুদ্র সঞ্চয় ও কিস্তি আদায় সমিতি</h3>
-                <p className="text-[9.5px] text-slate-500 leading-tight font-medium">ঢাকা, বাংলাদেশ • মোবাইল: {ADMIN_PROFILE.phone}</p>
-                <div className="mt-2 inline-block px-2.5 py-0.5 bg-slate-55 dark:bg-slate-50 border border-slate-200 text-slate-700 rounded-md font-extrabold text-[9px]">
+                <p className="text-[9.5px] text-slate-505 leading-tight font-medium">ঢাকা, বাংলাদেশ • মোবাইল: {ADMIN_PROFILE.phone}</p>
+                <div className="mt-2 inline-block px-2.5 py-0.5 bg-slate-50 border border-slate-200 text-slate-700 rounded-md font-extrabold text-[9px]">
                   সঞ্চয় সাপ্তাহিক/দৈনিক কিস্তি স্লিপ
                 </div>
               </div>
@@ -595,7 +722,7 @@ export default function Installments({ members, installments, onAddInstallment, 
 
               {/* Member profile key data */}
               <div className="space-y-1.5 border-b border-dashed border-emerald-100 pb-3 text-left">
-                <div className="flex justify-between items-center bg-slate-50/50 p-1.5 rounded-lg">
+                <div className="flex justify-between items-center bg-slate-50 p-1.5 rounded-lg">
                   <span className="text-slate-500 font-medium">সদস্যের নাম:</span>
                   <strong className="text-slate-800 font-bold">{selectedReceipt.memberName}</strong>
                 </div>
@@ -605,13 +732,13 @@ export default function Installments({ members, installments, onAddInstallment, 
                 </div>
                 <div className="flex justify-between items-center p-1.5 py-0.5">
                   <span className="text-slate-500 font-medium">মোবাইল নম্বর:</span>
-                  <span className="text-slate-800 font-semibold font-mono">
+                  <span className="text-slate-805 font-semibold font-mono">
                     {members.find(m => m.id === selectedReceipt.memberId)?.phone || 'N/A'}
                   </span>
                 </div>
                 <div className="flex justify-between items-center p-1.5 py-0.5">
                   <span className="text-slate-500 font-medium">হিসাবের ধরণ:</span>
-                  <span className="px-2 py-0.5 bg-emerald-50 text-emerald-800 text-[9px] font-extrabold rounded-md border border-emerald-100">
+                  <span className="px-2 py-0.5 bg-emerald-50 text-emerald-800 text-[9px] font-extrabold rounded-md border border-emerald-101">
                     {selectedReceipt.type === 'daily' ? 'দৈনিক সঞ্চয়' : selectedReceipt.type === 'weekly' ? 'সাপ্তাহিক সঞ্চয়' : 'মাসিক সঞ্চয়'}
                   </span>
                 </div>
@@ -621,18 +748,18 @@ export default function Installments({ members, installments, onAddInstallment, 
               <div className="my-3 border border-slate-200 rounded-xl overflow-hidden shadow-2xs">
                 <table className="w-full text-left border-collapse">
                   <thead>
-                    <tr className="bg-emerald-50 text-emerald-800 font-extrabold text-[9.5px] border-b border-emerald-100">
+                    <tr className="bg-emerald-50 text-emerald-800 font-extrabold text-[9.5px] border-b border-emerald-101">
                       <th className="p-2">আদায় বিবরণী</th>
                       <th className="p-2 text-right">পরিমাণ (৳)</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-150 text-slate-700 bg-white">
                     <tr>
-                      <td className="p-2 font-medium text-slate-600">১. নিয়মিত সঞ্চয় কিস্তি (Regular)</td>
+                      <td className="p-2 font-medium text-slate-605">১. নিয়মিত সঞ্চয় কিস্তি (Regular)</td>
                       <td className="p-2 text-right font-mono font-bold">{selectedReceipt.amount} ৳</td>
                     </tr>
                     <tr>
-                      <td className="p-2 font-medium text-slate-600">২. অতিরিক্ত সঞ্চয় আমানত (Extra Detail)</td>
+                      <td className="p-2 font-medium text-slate-605">২. অতিরিক্ত সঞ্চয় আমানত (Extra Detail)</td>
                       <td className="p-2 text-right font-mono font-bold">{(selectedReceipt.savingsAmount || 0)} ৳</td>
                     </tr>
                     {selectedReceipt.savingsPercent !== undefined && selectedReceipt.savingsPercent > 0 && (
@@ -662,7 +789,7 @@ export default function Installments({ members, installments, onAddInstallment, 
               {/* Total Balance highlight */}
               <div className="bg-slate-900 text-white p-2.5 rounded-xl border border-slate-800 flex justify-between items-center my-3.5 shadow-md">
                 <div className="text-left">
-                  <span className="text-[8px] text-slate-450 block font-bold leading-none tracking-wider uppercase mb-1">সদস্যের সঞ্চয় ব্যালেন্স</span>
+                  <span className="text-[8px] text-slate-400 block font-bold leading-none tracking-wider uppercase mb-1">সদস্যের সঞ্চয় ব্যালেন্স</span>
                   <span className="text-[9px] text-amber-300 font-semibold font-sans">সর্বমোট আমানত স্থিতি</span>
                 </div>
                 <strong className="text-xs font-sans text-emerald-300 font-extrabold">
@@ -671,7 +798,7 @@ export default function Installments({ members, installments, onAddInstallment, 
               </div>
 
               {/* Notice text */}
-              <p className="text-[8.5px] text-slate-400 text-center select-none font-medium mt-3.5 italic">
+              <p className="text-[8.5px] text-slate-405 text-center select-none font-medium mt-3.5 italic">
                 * নিয়মিত সঞ্চয় জমা রাখুন, ভবিষ্যৎ জীবন সুরক্ষিত রাখুন। ধন্যবাদ। *
               </p>
 
@@ -679,14 +806,14 @@ export default function Installments({ members, installments, onAddInstallment, 
               <div className="mt-8 flex justify-between items-end select-none">
                 <div className="text-center w-20">
                   <div className="h-0.5 w-full bg-slate-300"></div>
-                  <span className="text-[8.5px] text-slate-505 mt-1 block font-bold">গ্রাহকের স্বাক্ষর</span>
+                  <span className="text-[8.5px] text-slate-500 mt-1 block font-bold">গ্রাহকের স্বাক্ষর</span>
                 </div>
                 <div className="text-center w-28 relative">
                   <span className="block text-emerald-600 text-[11px] italic font-semibold font-serif mb-0.5 px-1 truncate">
                     {ADMIN_PROFILE.name}
                   </span>
                   <div className="h-0.5 w-full bg-slate-300"></div>
-                  <span className="text-[8.5px] text-slate-505 mt-1 block font-bold">আদায়কারী / এডমিন</span>
+                  <span className="text-[8.5px] text-slate-500 mt-1 block font-bold">আদায়কারী / এডমিন</span>
                 </div>
               </div>
             </div>
@@ -697,7 +824,7 @@ export default function Installments({ members, installments, onAddInstallment, 
                 <button
                   type="button"
                   onClick={() => downloadPdf('printable-savings-receipt', `রসিদ-${selectedReceipt?.id || 'রিসিপ্ট'}`, 'সদস্য সঞ্চয় জমা রসিদ')}
-                  className="py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-[10px] font-bold shadow flex items-center justify-center gap-1 cursor-pointer transition-all hover:scale-95"
+                  className="py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-[10px] font-bold shadow flex items-center justify-center gap-1 cursor-pointer transition-all"
                 >
                   <Download className="h-3.5 w-3.5 shrink-0" />
                   পিডিএফ ডাউনলোড (PDF)
@@ -714,7 +841,7 @@ export default function Installments({ members, installments, onAddInstallment, 
                             <title>SAVINGS RECEIPT - ${selectedReceipt.id}</title>
                             <script src="https://cdn.tailwindcss.com"></script>
                             <style>
-                              @import url('https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700;800&family=Inter:wght@405;500;600;700&display=swap');
+                              @import url('https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap');
                               body { 
                                 font-family: 'Hind Siliguri', 'Inter', sans-serif; 
                                 -webkit-print-color-adjust: exact;
@@ -741,7 +868,7 @@ export default function Installments({ members, installments, onAddInstallment, 
                       printWindow?.document.close();
                     }
                   }}
-                  className="py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-[10px] font-bold shadow flex items-center justify-center gap-1 cursor-pointer transition-all hover:scale-95"
+                  className="py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-[10px] font-bold shadow flex items-center justify-center gap-1 cursor-pointer transition-all"
                 >
                   <Printer className="h-3.5 w-3.5 shrink-0" />
                   রসিদ প্রিন্ট করুন
@@ -756,7 +883,7 @@ export default function Installments({ members, installments, onAddInstallment, 
                   className="py-2 bg-slate-100 hover:bg-slate-200 text-teal-800 rounded-xl text-[10px] font-bold border border-slate-200 shadow-sm flex items-center justify-center gap-1.5 cursor-pointer"
                 >
                   <MessageSquare className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
-                  হায়াটসঅ্যাপে পাঠান
+                  হায়াটসঅ্যাপে পাঠান
                 </a>
                 <a
                   href={`sms:?&body=${encodeURIComponent(getShareText(selectedReceipt))}`}
@@ -773,7 +900,7 @@ export default function Installments({ members, installments, onAddInstallment, 
 
       {/* Custom Dialog/Modal system (Bypasses iFrame sandboxed constraints beautifully) */}
       {dialog && dialog.isOpen && (
-        <div className="fixed inset-0 z-55 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-[9999]">
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl p-6 shadow-2xl max-w-sm w-full border border-slate-100 text-slate-800 text-left animate-in zoom-in-95 duration-200">
             <div className="flex items-center gap-3 mb-4">
               <div className={`p-2.5 rounded-2xl ${dialog.type === 'confirm' ? 'bg-rose-50 text-rose-600' : 'bg-amber-50 text-amber-600'}`}>
@@ -785,7 +912,7 @@ export default function Installments({ members, installments, onAddInstallment, 
               </div>
               <div>
                 <h3 className="text-base font-bold text-slate-900">{dialog.title}</h3>
-                <p className="text-[10px] text-slate-500 mt-0.5">{dialog.type === 'confirm' ? 'অনুমতি নিশ্চিতকরণ খাতা' : 'গুরুত্বপূর্ণ সতর্কতা সিগন্যাল'}</p>
+                <p className="text-[10px] text-slate-500 mt-0.5">{dialog.type === 'confirm' ? 'অনুমতি নিশ্চিতকরণ খাতা' : 'গুরুত্বपूर्ण সতর্কতা সিগন্যাল'}</p>
               </div>
             </div>
             
@@ -798,7 +925,7 @@ export default function Installments({ members, installments, onAddInstallment, 
                 <>
                   <button
                     onClick={() => setDialog(null)}
-                    className="px-4 py-2 bg-slate-100 lg:hover:bg-slate-200 text-slate-705 font-bold rounded-xl transition-all cursor-pointer"
+                    className="px-4 py-2 bg-slate-100 lg:hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition-all cursor-pointer"
                   >
                     বাতিল
                   </button>

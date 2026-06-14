@@ -912,7 +912,9 @@ export default function App() {
     repayAmount: number, 
     installmentNo?: string, 
     principalPaid?: number, 
-    profitPaid?: number
+    profitPaid?: number,
+    penaltyPaid?: number,
+    savingsPaid?: number
   ) => {
     if (currentRole !== 'admin') {
       alert('দুঃখিত, শুধুমাত্র এডমিনই এন্ট্রি বা পরিবর্তন করতে পারবেন।');
@@ -947,15 +949,34 @@ export default function App() {
         repayAmount: repayAmount,
         principalPaid: principalPaid ?? repayAmount,
         profitPaid: profitPaid ?? 0,
-        penaltyPaid: 0,
+        penaltyPaid: penaltyPaid ?? 0,
         date: new Date().toISOString().split('T')[0],
         installmentNo: installmentNo || ''
       };
       await setDoc(doc(db, 'loan_repayments', repaymentId), newRepayment);
+
+      // If borrower added savings during installment payment:
+      if (savingsPaid && savingsPaid > 0) {
+        const memberObj = members.find(m => m.id === targetLoan.memberId);
+        const instType = memberObj?.type || 'daily';
+        const installmentId = `INST-${Date.now()}-${Math.floor(1000 + Math.random() * 9050)}`;
+        const newSavingsInstallment: Installment = {
+          id: installmentId,
+          memberId: targetLoan.memberId,
+          memberName: targetLoan.memberName,
+          amount: 0,
+          savingsAmount: savingsPaid,
+          date: new Date().toISOString().split('T')[0],
+          type: instType,
+        };
+        await setDoc(doc(db, 'installments', installmentId), newSavingsInstallment);
+      }
       
       const installmentText = installmentNo ? ` (${installmentNo} কিস্তি)` : '';
+      const penaltyText = penaltyPaid && penaltyPaid > 0 ? `। কিস্তি জরিমানা: ${penaltyPaid} ৳` : '';
+      const savingsText = savingsPaid && savingsPaid > 0 ? `। ঋণগ্রহীতা সঞ্চয়: ${savingsPaid} ৳` : '';
       const breakdownText = (principalPaid !== undefined && profitPaid !== undefined)
-        ? `। আসল আদায়: ${principalPaid} ৳, লাভ আদায়: ${profitPaid} ৳ (মোট আদায়: ${repayAmount} ৳)`
+        ? `। আসল আদায়: ${principalPaid} ৳, লাভ আদায়: ${profitPaid} ৳${penaltyText}${savingsText} (মোট আদায়: ${repayAmount} ৳)`
         : ` (মোট আদায়: ${repayAmount} ৳)`;
 
       const newNotif: AdminNotification = {
@@ -1239,8 +1260,10 @@ export default function App() {
   const customExpenseSum = ledger ? ledger.filter(l => l.type === 'expense').reduce((sum, item) => sum + item.amount, 0) : 0;
   const customSurplusSum = ledger ? ledger.filter(l => l.type === 'surplus').reduce((sum, item) => sum + item.amount, 0) : 0;
 
-  // Net Cash Balance does NOT include the separate Percentage profits folder!
-  const totalCashBalanceOfCoop = totalSavingsSum + totalLoansRecoveredPrincipal + customIncomeSum + customSurplusSum - totalLoansDisbursedPrincipal - customExpenseSum;
+  const totalLoanPenalties = loanRepayments.reduce((sum, item) => sum + (item.penaltyPaid || 0), 0);
+
+  // Net Cash Balance includes all collections (savings, loan principal repaid, loan interest profit, loan penalties, custom income/surplus) minus disbursements & expenses!
+  const totalCashBalanceOfCoop = totalSavingsSum + totalLoansRecoveredPrincipal + totalLoanPercentProfit + totalLoanPenalties + customIncomeSum + customSurplusSum - totalLoansDisbursedPrincipal - customExpenseSum;
 
   const todayDateStr = new Date().toISOString().split('T')[0];
   const todaySavingsCollectionsSum = installments
@@ -1682,7 +1705,7 @@ export default function App() {
                 </div>
               ) : (
                 /* MEMBER DEDICATED PERSONAL DASHBOARD (For member Role - RED UI) */
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-left">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 text-left">
                   
                   {/* Item 1: Personal profile stats */}
                   {activeMember && (
@@ -1760,6 +1783,21 @@ export default function App() {
                           </div>
                         </div>
                       )}
+                    </div>
+                  </div>
+
+                  {/* Item 5: Cash Balance (কেশে অবশিষ্ট) for members/shareholders */}
+                  <div className="bg-slate-900 text-white p-5 rounded-2xl border border-slate-800 space-y-2 shadow-md border-b-4 border-b-emerald-400 hover:shadow-lg hover:scale-[1.01] active:scale-95 transition-all duration-300 text-left">
+                    <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider block flex items-center gap-1">
+                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 inline-block animate-pulse"></span>
+                      কেশে অবশিষ্ট (সমিতি তহবিল)
+                    </span>
+                    <div className="flex items-baseline justify-between">
+                      <strong className="text-2xl font-black text-emerald-400 font-mono">{totalCashBalanceOfCoop} ৳</strong>
+                      <span className="text-[10px] bg-slate-800 text-emerald-300 px-2 py-0.5 rounded-full font-bold">লাইভ ব্যালেন্স</span>
+                    </div>
+                    <div className="text-[10px] text-slate-400 font-sans border-t border-slate-800 pt-1.5 leading-relaxed">
+                      সমিতির সর্বমোট গচ্ছিত ক্যাশ ব্যালেন্স (কেশে অবশিষ্ট)। সকল সদস্যের তথ্য সুরক্ষার্থে এটি লাইভ আপডেট রাখা হয়।
                     </div>
                   </div>
                 </div>
