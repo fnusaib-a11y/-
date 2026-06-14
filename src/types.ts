@@ -40,6 +40,7 @@ export type Loan = {
   originalPrincipal?: number; // original principal amount without interest (e.g., 5000)
   profitAmount?: number;     // profit amount separately (e.g., 500)
   profitRepaid?: number;     // accumulated profit repaid separately
+  advanceSavingsAmount?: number;
 };
 
 export type TrashLog = {

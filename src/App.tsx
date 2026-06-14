@@ -939,10 +939,32 @@ export default function App() {
     }
     try {
       await setDoc(doc(db, 'loans', newLoan.id), newLoan);
+
+      // If advance savings exists upon loan issuance, record it under Borrower's Savings
+      if (newLoan.advanceSavingsAmount && newLoan.advanceSavingsAmount > 0) {
+        const advSavingsInst: Installment = {
+          id: `INST-${Math.floor(1000 + Math.random() * 9000)}-ADV`,
+          memberId: newLoan.memberId,
+          memberName: newLoan.memberName,
+          amount: newLoan.advanceSavingsAmount,
+          savingsAmount: 0,
+          savingsPercent: 0,
+          profitAmount: 0,
+          date: newLoan.takenDate,
+          type: 'weekly',
+          isBorrowerSavings: true // ensures it only deposits into "ঋণগ্রহীতার সঞ্চয়"
+        };
+        await setDoc(doc(db, 'installments', advSavingsInst.id), advSavingsInst);
+      }
+
       const newNotif: AdminNotification = {
         id: `NOTIF-${Date.now()}`,
         title: "নতুন লোন বিতরণ ফাইল",
-        message: `${newLoan.memberName} (${newLoan.memberId}) কে ${newLoan.principalAmount} ৳ এর ঋণ বিতরণ করা হয়েছে।`,
+        message: `${newLoan.memberName} (${newLoan.memberId}) কে ${newLoan.principalAmount} ৳ এর ঋণ বিতরণ করা হয়েছে।${
+          newLoan.advanceSavingsAmount && newLoan.advanceSavingsAmount > 0
+            ? ` (অগ্রিম সঞ্চয় ${newLoan.advanceSavingsAmount} ৳ ঋণগ্রহীতার সঞ্চয় ঘরে জমাকৃত)`
+            : ''
+        }`,
         date: newLoan.takenDate,
         read: false
       };
@@ -2024,8 +2046,8 @@ export default function App() {
                     {currentRole === 'admin' && (
                       <div className="space-y-2.5">
                         <div className="text-[10px] text-indigo-600 dark:text-indigo-400 font-bold mb-1">📢 ডাটাবেজে সংরক্ষিত আপনার মোট নোটিশ সংখ্যা: {notices.length}টি</div>
-                        <div className="max-h-[200px] overflow-y-auto space-y-2 pr-1">
-                          {notices.slice(0, 5).map((n) => (
+                        <div className="max-h-[250px] overflow-y-auto space-y-2 pr-1">
+                          {notices.map((n) => (
                             <div key={n.id} className={`p-3 border rounded-xl text-xs leading-relaxed ${
                               darkMode ? 'bg-slate-800/40 border-slate-700 text-slate-300' : 'bg-slate-50 border-slate-100 text-slate-650'
                             }`}>

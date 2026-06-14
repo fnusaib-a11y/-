@@ -63,6 +63,7 @@ export default function Loans({ members, loans, onAddLoan, onRepayLoan, onDelete
   const [installmentCount, setInstallmentCount] = useState('12');
   const [installmentType, setInstallmentType] = useState('Weekly');
   const [takenDate, setTakenDate] = useState(new Date().toISOString().split('T')[0]);
+  const [advanceSavingsAmount, setAdvanceSavingsAmount] = useState('');
 
   // Reactive calculations for Loan setup matching screenshot requirements
   const computedTotalPayable = useMemo(() => {
@@ -99,6 +100,7 @@ export default function Loans({ members, loans, onAddLoan, onRepayLoan, onDelete
   const handleIssueSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const corePrincipal = parseFloat(principalAmount) || 0;
+    const coreAdvanceSavings = parseFloat(advanceSavingsAmount) || 0;
     if (!memberId || corePrincipal <= 0 || computedInstallmentAmount <= 0 || !computedDueDate) {
       showAlert('অসম্পূর্ণ ফরম!', 'দয়া করে সব আবশ্যক ফিল্ড সঠিকভাবে পূরণ করুন!');
       return;
@@ -131,7 +133,8 @@ export default function Loans({ members, loans, onAddLoan, onRepayLoan, onDelete
       status: 'active',
       interestPercent: coreRate,
       originalPrincipal: corePrincipal,
-      profitAmount: computedProfit
+      profitAmount: computedProfit,
+      advanceSavingsAmount: coreAdvanceSavings
     };
 
     onAddLoan(newLoan);
@@ -143,6 +146,7 @@ export default function Loans({ members, loans, onAddLoan, onRepayLoan, onDelete
     setInterestPercent('10');
     setInstallmentCount('12');
     setInstallmentType('Weekly');
+    setAdvanceSavingsAmount('');
   };
 
   const handleRepaySubmit = (e: React.FormEvent) => {
@@ -436,7 +440,7 @@ export default function Loans({ members, loans, onAddLoan, onRepayLoan, onDelete
             {/* Input 2: Loan principal amount */}
             <div className="space-y-1.5">
               <div className="relative flex items-center bg-white border border-slate-200 rounded-2xl hover:border-blue-400 focus-within:border-[#1d8df5] focus-within:ring-2 focus-within:ring-blue-100 transition-all shadow-sm">
-                <span className="absolute inset-y-0 left-0 pl-4 flex items-center text-slate-650 text-slate-800 font-extrabold text-sm pointer-events-none">$</span>
+                <span className="absolute inset-y-0 left-0 pl-4 flex items-center text-slate-650 text-slate-800 font-extrabold text-sm pointer-events-none">৳</span>
                 <input
                   type="number"
                   required
@@ -502,6 +506,23 @@ export default function Loans({ members, loans, onAddLoan, onRepayLoan, onDelete
               </div>
             </div>
 
+            {/* Input 5: Advance Savings Deposit input */}
+            <div className="space-y-1.5">
+              <label className="block text-xs font-bold text-slate-700 font-sans">অগ্রিম সঞ্চয় জমা (প্রথম দিন)</label>
+              <div className="relative flex items-center bg-white border border-slate-200 rounded-2xl hover:border-blue-400 focus-within:border-[#1d8df5] focus-within:ring-2 focus-within:ring-blue-100 transition-all shadow-sm">
+                <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-500 pointer-events-none">
+                  <Wallet className="h-4.5 w-4.5" />
+                </span>
+                <input
+                  type="number"
+                  placeholder="অগ্রিম সঞ্চয় এর পরিমাণ (যদি থাকে)"
+                  value={advanceSavingsAmount}
+                  onChange={(e) => setAdvanceSavingsAmount(e.target.value)}
+                  className="w-full pl-11 pr-4 py-3.5 bg-transparent rounded-2xl text-xs text-slate-800 outline-none font-sans placeholder-slate-400 font-semibold"
+                />
+              </div>
+            </div>
+
             {/* Real-time Dynamic Calculator summary cards (Highly intuitive bookkeeping UI) */}
             {parseFloat(principalAmount) > 0 && (
               <div className="p-3 bg-blue-50/70 border border-blue-100 rounded-2xl text-[11px] text-blue-900 leading-normal space-y-1.5 font-sans">
@@ -521,6 +542,12 @@ export default function Loans({ members, loans, onAddLoan, onRepayLoan, onDelete
                   <span>প্রতি কিস্তির পরিমাণ ({installmentCount}টি):</span>
                   <strong className="font-mono text-[#1d8df5]">{computedInstallmentAmount} ৳</strong>
                 </div>
+                {parseFloat(advanceSavingsAmount) > 0 && (
+                  <div className="flex justify-between border-t border-dashed border-blue-200 pt-1.5 mt-1.5 font-bold text-teal-800">
+                    <span>অগ্রিম সঞ্চয় জমা:</span>
+                    <strong className="font-mono">{advanceSavingsAmount} ৳ (ঋণগ্রহীতা সঞ্চয়)</strong>
+                  </div>
+                )}
               </div>
             )}
 
