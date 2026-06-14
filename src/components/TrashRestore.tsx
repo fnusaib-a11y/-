@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { TrashLog, AppConfig } from '../types';
+import { TrashLog, AppConfig, Notice } from '../types';
 import { 
   RotateCcw, Download, Upload, Trash2, Database, Shield, 
   MapPin, Phone, User, Key, Save, Image, CheckCircle, RefreshCw, 
@@ -16,6 +16,9 @@ interface TrashRestoreProps {
   appConfig: AppConfig;
   onUpdateAppConfig: (newConfig: AppConfig) => Promise<void>;
   overdueMembersList?: any[];
+  notices: Notice[];
+  onAddNotice: (notice: Omit<Notice, 'id'>) => Promise<void>;
+  onDeleteNotice: (id: string) => Promise<void>;
 }
 
 export default function TrashRestore({ 
@@ -27,7 +30,10 @@ export default function TrashRestore({
   fullState,
   appConfig,
   onUpdateAppConfig,
-  overdueMembersList = []
+  overdueMembersList = [],
+  notices = [],
+  onAddNotice,
+  onDeleteNotice
 }: TrashRestoreProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
@@ -43,6 +49,11 @@ export default function TrashRestore({
   const [noticeText, setNoticeText] = useState(appConfig.noticeText || '');
   const [memberNoticeText, setMemberNoticeText] = useState(appConfig.memberNoticeText || '');
   const [shareholderNoticeText, setShareholderNoticeText] = useState(appConfig.shareholderNoticeText || '');
+
+  const [newNoticeText, setNewNoticeText] = useState('');
+  const [newNoticeCategory, setNewNoticeCategory] = useState<'member' | 'shareholder' | 'all'>('member');
+  const [isNoticePublishing, setIsNoticePublishing] = useState(false);
+  const [noticeSuccess, setNoticeSuccess] = useState('');
 
   const [isSaving, setIsSaving] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
@@ -111,6 +122,44 @@ export default function TrashRestore({
       }
     };
     reader.readAsDataURL(file);
+  };
+
+  const handlePublishNotice = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (!newNoticeText.trim()) {
+      alert('দয়া করে নোটিশের বিবরণ টাইপ করুন।');
+      return;
+    }
+    setIsNoticePublishing(true);
+    setNoticeSuccess('');
+    try {
+      const bnDate = new Date().toLocaleDateString('bn-BD', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+      await onAddNotice({
+        category: newNoticeCategory,
+        text: newNoticeText.trim(),
+        date: bnDate,
+        createdAt: Date.now()
+      });
+      setNewNoticeText('');
+      setNoticeSuccess('অভিনন্দন! নোটিশটি সফলভাবে সংরক্ষিত ও প্রকাশিত হয়েছে।');
+      setTimeout(() => setNoticeSuccess(''), 4000);
+    } catch (err) {
+      alert('নোটিশ প্রকাশে ত্রুটি ঘটেছে। দয়া করে আবার চেষ্টা করুন।');
+    } finally {
+      setIsNoticePublishing(false);
+    }
+  };
+
+  const handleDeleteNoticeClick = (id: string) => {
+    showConfirm(
+      'নোটিশটি ডিলিট করুন',
+      'আপনি কি সত্যিই এই নোটিশটি চিরতরে মুছে ফেলতে চান? এটি আর কোনো ড্যাশবোর্ডে দেখা যাবে না।',
+      () => onDeleteNotice(id)
+    );
   };
 
   // Submit Brand Changes
@@ -426,40 +475,107 @@ export default function TrashRestore({
           </div>
 
           {/* Row 3: Notice Board Configuration */}
-          <div className="pt-4 border-t border-slate-100 dark:border-slate-800 space-y-6">
+          <div className="pt-4 border-t border-slate-100 dark:border-slate-800 space-y-4">
             <div>
-              <span className="text-xs font-bold text-slate-500 dark:text-slate-400 block pb-2.5 mb-4 border-b border-slate-100 dark:border-slate-800">৩. নোটিশ বোর্ড সেটিংস (Notice Board System)</span>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Member Notice */}
+              <span className="text-xs font-bold text-slate-500 dark:text-slate-400 block pb-2.5 mb-2 border-b border-slate-100 dark:border-slate-800">৩. মাল্টি-নোটিশ বোর্ড সেটিংস (Notice Board System)</span>
+              <p className="text-[10px] text-zinc-500 mb-4 bg-slate-50 dark:bg-slate-900/40 p-2.5 rounded-lg leading-relaxed">
+                ⚠️ <strong>নতুন কাস্টম নোটিশ ফিচার:</strong> আগে একটির বেশি নোটিশ সেভ রাখা যেত না। এখন থেকে আপনার লেখা সকল নোটিশ ডাটাবেজে চিরস্থায়ীভাবে সেভ থাকবে। আপনি চাইলে যেকোনো নোটিশ পরবর্তীতে নিচে থাকা লাল <strong>ডিলিট</strong> বাটন দিয়ে মুছে দিতে পারেন।
+              </p>
+
+              {/* Notice Creation Form Inputs */}
+              <div className="bg-slate-50 dark:bg-slate-900/30 p-4 rounded-xl border border-slate-100 dark:border-slate-800 space-y-3.5 mb-6">
+                <span className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 block">নতুন নোটিশ লিখুন (Write New Notice)</span>
+                
                 <div className="space-y-2">
-                  <label className="block text-xs font-bold text-emerald-600 dark:text-emerald-400 mb-1">📢 শুধুমাত্র 'সদস্যদের' জন্য নোটিশ (Notice for Members)</label>
+                  <label className="block text-[10px] font-bold text-slate-600 dark:text-slate-400">নোটিশের বিবরণ (Notice Body)*</label>
                   <textarea
-                    value={memberNoticeText}
-                    onChange={(e) => setMemberNoticeText(e.target.value)}
-                    rows={4}
-                    className="w-full p-3.5 bg-slate-50 border border-slate-200 dark:border-slate-750 dark:bg-slate-950 dark:text-white rounded-xl text-xs font-sans outline-none focus:ring-1 focus:ring-emerald-500 font-medium leading-relaxed"
-                    placeholder="সদস্যরা তাদের ড্যাশবোর্ডে কি নোটিশ দেখতে পাবে তা এখানে লিখুন..."
+                    value={newNoticeText}
+                    onChange={(e) => setNewNoticeText(e.target.value)}
+                    rows={3}
+                    className="w-full p-3 bg-white border border-slate-200 dark:border-slate-750 dark:bg-slate-950 dark:text-white rounded-xl text-xs font-sans outline-none focus:ring-1 focus:ring-emerald-500 font-medium leading-relaxed"
+                    placeholder="মহামান্য সদস্য/অংশীদারদের উদ্দেশ্যে নোটিশটি লিখুন..."
                   />
-                  <p className="text-[10px] text-slate-400 dark:text-slate-500">* এই নোটিশটি শুধুমাত্র সাধারণ 'সদস্য' (Members) ড্যাশবোর্ডে দেখতে পাবে।</p>
                 </div>
 
-                {/* Shareholder Notice */}
-                <div className="space-y-2">
-                  <label className="block text-xs font-bold text-blue-600 dark:text-blue-400 mb-1">📢 শুধুমাত্র 'শেয়ার হোল্ডারদের' জন্য নোটিশ (Notice for Shareholders)</label>
-                  <textarea
-                    value={shareholderNoticeText}
-                    onChange={(e) => setShareholderNoticeText(e.target.value)}
-                    rows={4}
-                    className="w-full p-3.5 bg-slate-50 border border-slate-200 dark:border-slate-750 dark:bg-slate-950 dark:text-white rounded-xl text-xs font-sans outline-none focus:ring-1 focus:ring-emerald-500 font-medium leading-relaxed"
-                    placeholder="শেয়ার হোল্ডাররা তাদের ড্যাশবোর্ডে কি নোটিশ দেখতে পাবে তা এখানে লিখুন..."
-                  />
-                  <p className="text-[10px] text-slate-400 dark:text-slate-500">* এই নোটিশটি শুধুমাত্র 'মালিক/শেয়ারহোল্ডার' (Owners) ড্যাশবোর্ডে দেখতে পাবে।</p>
+                <div className="flex flex-col sm:flex-row gap-3.5 items-end justify-between">
+                  <div className="w-full sm:w-1/2 space-y-1 text-left">
+                    <label className="block text-[10px] font-bold text-slate-600 dark:text-slate-400">প্রदर्शन ক্ষেত্র (Target Audience)*</label>
+                    <select
+                      value={newNoticeCategory}
+                      onChange={(e) => setNewNoticeCategory(e.target.value as any)}
+                      className="w-full p-2.5 bg-white border border-slate-205 dark:border-slate-755 dark:bg-slate-950 dark:text-white rounded-xl text-xs font-bold outline-none cursor-pointer focus:ring-1 focus:ring-emerald-500"
+                    >
+                      <option value="member">📢 শুধুমাত্র সাধারণ সদস্যদের ড্যাশবোর্ডে (Members Only)</option>
+                      <option value="shareholder">📢 শুধুমাত্র শেয়ার হোল্ডারদের ড্যাশবোর্ডে (Shareholders Only)</option>
+                      <option value="all">📢 সবার ড্যাশবোর্ডে (Everyone / All Role Cards)</option>
+                    </select>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handlePublishNotice}
+                    disabled={isNoticePublishing}
+                    className="w-full sm:w-auto px-5 py-2.5 bg-indigo-650 hover:bg-indigo-700 active:bg-indigo-805 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 cursor-pointer shadow-sm transition-all"
+                  >
+                    {isNoticePublishing ? (
+                      <RefreshCw className="h-4 w-4 animate-spin text-white" />
+                    ) : (
+                      <CheckCircle className="h-4 w-4 text-white" />
+                    )}
+                    {isNoticePublishing ? 'আপলোড হচ্ছে...' : 'নতুন নোটিশ সেভ ও প্রকাশ করুন'}
+                  </button>
+                </div>
+
+                {noticeSuccess && (
+                  <p className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/20 p-2 rounded-lg text-center animate-bounce">{noticeSuccess}</p>
+                )}
+              </div>
+
+              {/* Historic Notices List */}
+              <div className="space-y-3 text-left">
+                <span className="text-[11px] font-bold text-slate-600 dark:text-slate-400 block border-b border-dashed border-slate-150 dark:border-slate-800 pb-1">
+                  সংরক্ষিত সকল নোটিশের তালিকা ({notices.length}টি নোটিশ সেভ আছে)
+                </span>
+
+                <div className="max-h-[250px] overflow-y-auto space-y-2.5 pr-1">
+                  {notices.map((n) => (
+                    <div
+                      key={n.id}
+                      className="p-3 bg-white dark:bg-slate-950 border border-slate-150 dark:border-slate-800 rounded-xl relative group flex justify-between items-start gap-4 hover:border-slate-300 dark:hover:border-slate-700 transition-colors"
+                    >
+                      <div className="space-y-1.5 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className={`text-[8.5px] font-bold px-2 py-0.5 rounded-full ${
+                            n.category === 'member' ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/20' :
+                            n.category === 'shareholder' ? 'bg-blue-50 text-blue-600 dark:bg-blue-950/20' :
+                            'bg-purple-100 text-purple-600 dark:bg-purple-950/20'
+                          }`}>
+                            {n.category === 'member' ? 'সদস্যদের জন্য' : n.category === 'shareholder' ? 'শেয়ার হোল্ডারদের জন্য' : 'সবার জন্য'}
+                          </span>
+                          <span className="text-[8.5px] text-slate-400 font-mono tracking-tight">{n.date}</span>
+                        </div>
+                        <p className="text-xs text-slate-700 dark:text-slate-300 whitespace-pre-wrap leading-relaxed font-sans font-medium">{n.text}</p>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteNoticeClick(n.id)}
+                        title="এই নোটিশটি স্থায়ীভাবে ডিলিট করুন"
+                        className="p-2 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg cursor-pointer transition-colors shrink-0"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ))}
+
+                  {notices.length === 0 && (
+                    <div className="p-6 text-center border border-dashed border-slate-150 dark:border-slate-800 rounded-xl text-xs text-slate-405 italic">
+                      কোনো সংরক্ষিত নোটিশ নেই। উপরে ফরমটি পূরণ করে প্রথম নোটিশটি প্রকাশ করুন।
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
-
-
           </div>
 
           {/* Form Action save control */}

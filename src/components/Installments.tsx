@@ -41,7 +41,13 @@ export default function Installments({ members, installments, onAddInstallment, 
 
   const getMemberTotalSavings = (mId: string) => {
     return installments
-      .filter(i => i.memberId === mId)
+      .filter(i => i.memberId === mId && !i.isBorrowerSavings)
+      .reduce((sum, item) => sum + item.amount + (item.savingsAmount || 0), 0);
+  };
+
+  const getMemberBorrowerSavings = (mId: string) => {
+    return installments
+      .filter(i => i.memberId === mId && i.isBorrowerSavings)
       .reduce((sum, item) => sum + item.amount + (item.savingsAmount || 0), 0);
   };
 
@@ -83,6 +89,7 @@ export default function Installments({ members, installments, onAddInstallment, 
   const [amount, setAmount] = useState('');
   const [savingsAmount, setSavingsAmount] = useState('');
   const [savingsPercent, setSavingsPercent] = useState('0');
+  const [isBorrowerSavings, setIsBorrowerSavings] = useState(false);
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [instType, setInstType] = useState<'daily' | 'weekly' | 'monthly'>('weekly');
 
@@ -103,9 +110,11 @@ export default function Installments({ members, installments, onAddInstallment, 
     if (m) {
       setAmount(m.targetInstallmentAmount ? m.targetInstallmentAmount.toString() : '');
       setInstType(m.type || 'weekly');
+      setIsBorrowerSavings(m.memberCategory === 'borrower');
     } else {
       setAmount('');
       setInstType('weekly');
+      setIsBorrowerSavings(false);
     }
   };
 
@@ -134,7 +143,8 @@ export default function Installments({ members, installments, onAddInstallment, 
       savingsPercent: pct,
       profitAmount: computedSavingsProfit,
       date,
-      type: instType
+      type: instType,
+      isBorrowerSavings: isBorrowerSavings
     };
 
     onAddInstallment(newInst);
@@ -406,6 +416,23 @@ export default function Installments({ members, installments, onAddInstallment, 
                 </div>
               </div>
 
+              {/* ঋণগ্রহীতার সঞ্চয়? (Borrower's Savings account) */}
+              <div className="flex items-start gap-2.5 p-3.5 bg-indigo-50/40 border border-indigo-150 rounded-2xl text-left select-none">
+                <input
+                  type="checkbox"
+                  id="isBorrowerSavingsCheckbox"
+                  checked={isBorrowerSavings}
+                  onChange={(e) => setIsBorrowerSavings(e.target.checked)}
+                  className="h-4 w-4 mt-0.5 text-indigo-600 border-slate-300 rounded cursor-pointer"
+                />
+                <label htmlFor="isBorrowerSavingsCheckbox" className="text-xs font-bold text-slate-700 cursor-pointer leading-tight">
+                  এটা কি ঋণগ্রহীতার সঞ্চয়? (Borrower's Savings Account)
+                  <span className="block text-[10px] text-slate-450 font-normal mt-0.5">
+                    * সিলেক্ট করলে এই সঞ্চয়টি অন্য কোথাও না গিয়ে শুধুমাত্র <strong>"ঋণগ্রহীতার সঞ্চয়"</strong> তহবিলে জমা হবে।
+                  </span>
+                </label>
+              </div>
+
               {/* Dynamic calculations list */}
               {(parseFloat(amount) > 0 || parseFloat(savingsAmount) > 0) && (
                 <div className="p-3.5 bg-emerald-50/70 border border-emerald-100 rounded-2xl text-[11px] text-emerald-950 leading-normal space-y-1.5 font-sans">
@@ -528,11 +555,14 @@ export default function Installments({ members, installments, onAddInstallment, 
                                  <div className="font-extrabold text-slate-700 font-mono">{m.targetInstallmentAmount} ৳</div>
                                </div>
                              </td>
-                             <td className="p-4 font-mono text-emerald-600 font-black text-sm">
-                               <div>{totalSavings} ৳</div>
+                             <td className="p-4 font-mono text-emerald-600 font-bold text-xs">
+                               <div className="text-[11px] text-slate-550">সদস্য সঞ্চয়: <span className="font-extrabold text-emerald-600">{toBengaliDigits(totalSavings)} ৳</span></div>
+                               {getMemberBorrowerSavings(m.id) > 0 && (
+                                 <div className="text-[11px] text-indigo-700 font-bold mt-1">ঋণগ্রহীতা সঞ্চয়: <span className="text-indigo-600 font-extrabold">{toBengaliDigits(getMemberBorrowerSavings(m.id))} ৳</span></div>
+                               )}
                                {totalProfit > 0 && (
-                                 <div className="text-[10px] text-teal-600 font-sans font-medium mt-0.5">
-                                   লভ্যাংশ: +{totalProfit} ৳
+                                 <div className="text-[10px] text-teal-600 font-sans font-medium mt-1">
+                                   লভ্যাংশ: +{toBengaliDigits(totalProfit)} ৳
                                  </div>
                                )}
                              </td>

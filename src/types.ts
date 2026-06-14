@@ -23,6 +23,7 @@ export type Installment = {
   profitAmount?: number;
   date: string;
   type: 'daily' | 'weekly' | 'monthly';
+  isBorrowerSavings?: boolean;
 };
 
 export type Loan = {
@@ -126,7 +127,16 @@ export type LoanRepayment = {
   principalPaid: number;
   profitPaid: number;
   penaltyPaid: number;
+  savingsPaid?: number;
   date: string;
   installmentNo?: string;
+};
+
+export type Notice = {
+  id: string;
+  category: 'member' | 'shareholder' | 'all';
+  text: string;
+  date: string;
+  createdAt: number;
 };
 

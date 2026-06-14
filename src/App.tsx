@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { getSavedData, saveAllData, ADMIN_PROFILE, INITIAL_MEMBERS, INITIAL_INSTALLMENTS, INITIAL_LOANS, INITIAL_NOTIFICATIONS } from './db';
-import { Member, Installment, Loan, TrashLog, AdminNotification, AppConfig, LedgerEntry, PinRequest, MonthlyExpense, CashVaultLog, LoanRepayment } from './types';
+import { Member, Installment, Loan, TrashLog, AdminNotification, AppConfig, LedgerEntry, PinRequest, MonthlyExpense, CashVaultLog, LoanRepayment, Notice } from './types';
 // @ts-ignore
 import associationLogo from './assets/images/association_logo_1780420505055.png';
 
@@ -47,6 +47,7 @@ export default function App() {
   const [monthlyExpenses, setMonthlyExpenses] = useState<MonthlyExpense[]>([]);
   const [cashVaultLogs, setCashVaultLogs] = useState<CashVaultLog[]>([]);
   const [loanRepayments, setLoanRepayments] = useState<LoanRepayment[]>([]);
+  const [notices, setNotices] = useState<Notice[]>([]);
 
   const [appConfig, setAppConfig] = useState<AppConfig>({
     adminName: "মিজানুর রহমান",
@@ -221,6 +222,7 @@ export default function App() {
     let unsubscribeMonthlyExpenses: (() => void) | null = null;
     let unsubscribeCashVaultLogs: (() => void) | null = null;
     let unsubscribeLoanRepayments: (() => void) | null = null;
+    let unsubscribeNotices: (() => void) | null = null;
 
     const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
       if (user) {
@@ -433,6 +435,19 @@ export default function App() {
       console.warn('Firestore loan repayments read issue:', err);
     });
 
+    // 12. Listen to notices
+    unsubscribeNotices = onSnapshot(collection(db, 'notices'), (snapshot) => {
+      const list: Notice[] = [];
+      snapshot.forEach(docSnap => {
+        list.push(docSnap.data() as Notice);
+      });
+      // Sort newest notices first
+      list.sort((a, b) => b.createdAt - a.createdAt);
+      setNotices(list);
+    }, (err) => {
+      console.warn('Firestore notices read issue:', err);
+    });
+
     const timer = setTimeout(() => {
       setIsLoading(false);
     }, 1500);
@@ -450,6 +465,7 @@ export default function App() {
       if (unsubscribeMonthlyExpenses) unsubscribeMonthlyExpenses();
       if (unsubscribeCashVaultLogs) unsubscribeCashVaultLogs();
       if (unsubscribeLoanRepayments) unsubscribeLoanRepayments();
+      if (unsubscribeNotices) unsubscribeNotices();
       clearTimeout(timer);
     };
   }, []);
@@ -525,6 +541,37 @@ export default function App() {
       setAppConfig(newConfig);
     } catch (err) {
       handleFirestoreError(err, OperationType.WRITE, 'settings/app_config');
+    }
+  };
+
+  // Action to add real-time Notice to Firestore
+  const handleAddNotice = async (newNotice: Omit<Notice, 'id'>) => {
+    if (currentRole !== 'admin') {
+      alert('দুঃখিত, শুধুমাত্র এডমিনই নোটিশ প্রকাশ করতে পারবেন।');
+      return;
+    }
+    const id = `NOTICE-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
+    const docData: Notice = {
+      id,
+      ...newNotice,
+    };
+    try {
+      await setDoc(doc(db, 'notices', id), docData);
+    } catch (err) {
+      console.error('Error adding notice:', err);
+    }
+  };
+
+  // Action to delete a real-time Notice from Firestore
+  const handleDeleteNotice = async (id: string) => {
+    if (currentRole !== 'admin') {
+      alert('দুঃখিত, শুধুমাত্র এডমিনই নোটিশ মুছতে পারবেন।');
+      return;
+    }
+    try {
+      await deleteDoc(doc(db, 'notices', id));
+    } catch (err) {
+      console.error('Error deleting notice:', err);
     }
   };
 
@@ -950,6 +997,7 @@ export default function App() {
         principalPaid: principalPaid ?? repayAmount,
         profitPaid: profitPaid ?? 0,
         penaltyPaid: penaltyPaid ?? 0,
+        savingsPaid: savingsPaid ?? 0,
         date: new Date().toISOString().split('T')[0],
         installmentNo: installmentNo || ''
       };
@@ -968,6 +1016,7 @@ export default function App() {
           savingsAmount: savingsPaid,
           date: new Date().toISOString().split('T')[0],
           type: instType,
+          isBorrowerSavings: true
         };
         await setDoc(doc(db, 'installments', installmentId), newSavingsInstallment);
       }
@@ -1239,8 +1288,15 @@ export default function App() {
   const totalMemberCount = members.length;
   const activeMemberCount = members.filter(m => m.status === 'active').length;
 
-  // 1. Total savings deposited = regular installments + extra savings (Excluding interest percentages completely!)
-  const totalSavingsSum = installments.reduce((sum, item) => sum + item.amount + (item.savingsAmount || 0), 0);
+  // 1. Total savings deposited = regular installments + extra savings (Excluding borrower savings and interest percentages!)
+  const totalSavingsSum = installments
+    .filter(item => !item.isBorrowerSavings)
+    .reduce((sum, item) => sum + item.amount + (item.savingsAmount || 0), 0);
+
+  // 1b. Total borrower savings deposited directly as borrower savings (Excluding regular member savings!)
+  const totalBorrowerSavingsSum = installments
+    .filter(item => item.isBorrowerSavings)
+    .reduce((sum, item) => sum + item.amount + (item.savingsAmount || 0), 0);
 
   // 2. Total loan principal disbursed (subtract core principal from money container, not principalAmount which includes interest profit)
   const totalLoansDisbursedPrincipal = loans.reduce((sum, l) => sum + (l.originalPrincipal || (l.principalAmount - (l.profitAmount || 0))), 0);
@@ -1277,7 +1333,13 @@ export default function App() {
   // User-specific member dashboard logic
   const activeMember = members.find(m => m.id === currentMemberId);
   const memberPersonalInstallments = installments.filter(i => i.memberId === currentMemberId);
-  const memberPersonalSavingsTotal = memberPersonalInstallments.reduce((sum, item) => sum + item.amount + (item.savingsAmount || 0), 0);
+  const memberPersonalSavingsTotal = memberPersonalInstallments
+    .filter(item => !item.isBorrowerSavings)
+    .reduce((sum, item) => sum + item.amount + (item.savingsAmount || 0), 0);
+
+  const memberPersonalBorrowerSavingsTotal = memberPersonalInstallments
+    .filter(item => item.isBorrowerSavings)
+    .reduce((sum, item) => sum + item.amount + (item.savingsAmount || 0), 0);
   
   const memberPersonalLoans = loans.filter(l => l.memberId === currentMemberId);
   const memberPersonalLoansTotal = memberPersonalLoans.reduce((sum, item) => sum + (item.originalPrincipal || (item.principalAmount - (item.profitAmount || 0))), 0);
@@ -1666,39 +1728,39 @@ export default function App() {
                     <div className="text-[9.5px] text-slate-400 font-sans">মুনাফার আলাদা ফোল্ডার</div>
                   </div>
 
-                  {/* Gorgeous Premium Cash In Hand Widget Card - Resolves Requirement */}
+                  {/* Gorgeous Premium Borrower Savings Card - Replaces Cash In Hand as per User's request */}
                   {currentRole === 'admin' ? (
                     <button
-                      onClick={() => changeTab('diary')}
-                      title="কেশের আলমারী ও খরচ ডায়েরি খতিয়ান দেখুন"
-                      className={`bg-slate-950 text-slate-100 p-4 rounded-2xl border border-slate-800 text-left space-y-1 shadow-md hover:shadow-lg hover:scale-[1.02] active:scale-95 transition-all duration-300 border-b-4 cursor-pointer group ${totalCashBalanceOfCoop >= 0 ? 'border-b-emerald-400' : 'border-b-rose-400'}`}
+                      onClick={() => changeTab('installments')}
+                      title="কিস্তি ও সঞ্চয় সংগ্রহ ড্যাশবোর্ড দেখুন"
+                      className="bg-indigo-950/70 text-indigo-100 p-4 rounded-2xl border border-indigo-805 text-left space-y-1 shadow-md hover:shadow-lg hover:scale-[1.02] active:scale-95 transition-all duration-305 border-b-4 border-b-indigo-500 cursor-pointer group"
                     >
-                      <span className="text-[10px] font-bold text-slate-350 block uppercase tracking-wider flex items-center gap-1">
-                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 inline-block animate-pulse"></span>
-                        কেশে অবশিষ্ট
+                      <span className="text-[10px] font-bold text-indigo-305 block uppercase tracking-wider flex items-center gap-1">
+                        <span className="h-1.5 w-1.5 rounded-full bg-indigo-400 inline-block animate-pulse"></span>
+                        ঋণগ্রহীতার সঞ্চয়
                       </span>
-                      <strong className={`text-xl font-black font-mono tracking-tight transition-colors group-hover:text-emerald-400 ${totalCashBalanceOfCoop >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                        {totalCashBalanceOfCoop} ৳
+                      <strong className="text-xl font-black font-mono tracking-tight text-indigo-400 transition-colors group-hover:text-indigo-300">
+                        {totalBorrowerSavingsSum} ৳
                       </strong>
-                      <div className="text-[9.5px] text-slate-350/90 font-sans leading-none flex items-center justify-between w-full">
-                        <span>নিট ক্যাশ তহবিল</span>
-                        <span className="text-[8px] text-emerald-400 group-hover:underline">ডায়েরি ➔</span>
+                      <div className="text-[9.5px] text-zinc-350 font-sans leading-none flex items-center justify-between w-full">
+                        <span>ঋণগ্রহীতা সঞ্চয় তহবিল</span>
+                        <span className="text-[8px] text-indigo-400 group-hover:underline">তালিকা ➔</span>
                       </div>
                     </button>
                   ) : (
                     <div
-                      title="কেশের অবশিষ্ট তহবিল"
-                      className={`bg-slate-950 text-slate-100 p-4 rounded-2xl border border-slate-800 text-left space-y-1 shadow-md border-b-4 ${totalCashBalanceOfCoop >= 0 ? 'border-b-emerald-400' : 'border-b-rose-400'}`}
+                      title="ঋণগ্রহীতার সঞ্চয় তহবিল"
+                      className="bg-[#0f172a] text-slate-105 p-4 rounded-2xl border border-indigo-955 text-left space-y-1 shadow-md border-b-4 border-b-indigo-500 font-sans"
                     >
-                      <span className="text-[10px] font-bold text-slate-350 block uppercase tracking-wider flex items-center gap-1">
-                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 inline-block animate-pulse"></span>
-                        কেশে অবশিষ্ট
+                      <span className="text-[10px] font-bold text-indigo-305 block uppercase tracking-wider flex items-center gap-1 font-sans">
+                        <span className="h-1.5 w-1.5 rounded-full bg-indigo-400 inline-block animate-pulse font-sans"></span>
+                        ঋণগ্রহীতার সঞ্চয়
                       </span>
-                      <strong className={`text-xl font-black font-mono tracking-tight ${totalCashBalanceOfCoop >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                        {totalCashBalanceOfCoop} ৳
+                      <strong className="text-xl font-black font-mono text-indigo-400 tracking-tight">
+                        {totalBorrowerSavingsSum} ৳
                       </strong>
-                      <div className="text-[9.5px] text-slate-350/90 font-sans leading-none flex items-center justify-between w-full">
-                        <span>নিট ক্যাশ তহবিল</span>
+                      <div className="text-[9.5px] text-zinc-400 font-sans leading-none flex items-center justify-between w-full">
+                        <span>ঋণগ্রহীতা সঞ্চয় তহবিল</span>
                       </div>
                     </div>
                   )}
@@ -1786,18 +1848,20 @@ export default function App() {
                     </div>
                   </div>
 
-                  {/* Item 5: Cash Balance (কেশে অবশিষ্ট) for members/shareholders */}
-                  <div className="bg-slate-900 text-white p-5 rounded-2xl border border-slate-800 space-y-2 shadow-md border-b-4 border-b-emerald-400 hover:shadow-lg hover:scale-[1.01] active:scale-95 transition-all duration-300 text-left">
-                    <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider block flex items-center gap-1">
-                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 inline-block animate-pulse"></span>
-                      কেশে অবশিষ্ট (সমিতি তহবিল)
+                  {/* Item 5: Borrower Savings for members/shareholders */}
+                  <div className="bg-slate-900 text-white p-5 rounded-2xl border border-slate-800 space-y-2 shadow-md border-b-4 border-b-indigo-500 hover:shadow-lg hover:scale-[1.01] active:scale-95 transition-all duration-300 text-left">
+                    <span className="text-[10px] font-bold text-indigo-300 uppercase tracking-wider block flex items-center gap-1">
+                      <span className="h-1.5 w-1.5 rounded-full bg-indigo-400 inline-block animate-pulse"></span>
+                      {currentRole === 'member' ? 'ঋণগ্রহীতার সঞ্চয় (আপনার সঞ্চয়)' : 'ঋণগ্রহীতার সঞ্চয়'}
                     </span>
                     <div className="flex items-baseline justify-between">
-                      <strong className="text-2xl font-black text-emerald-400 font-mono">{totalCashBalanceOfCoop} ৳</strong>
-                      <span className="text-[10px] bg-slate-800 text-emerald-300 px-2 py-0.5 rounded-full font-bold">লাইভ ব্যালেন্স</span>
+                      <strong className="text-2xl font-black text-indigo-400 font-mono">
+                        {currentRole === 'member' ? memberPersonalBorrowerSavingsTotal : totalBorrowerSavingsSum} ৳
+                      </strong>
+                      <span className="text-[10px] bg-slate-800 text-indigo-300 px-2 py-0.5 rounded-full font-bold">সুরক্ষিত তহবিল</span>
                     </div>
                     <div className="text-[10px] text-slate-400 font-sans border-t border-slate-800 pt-1.5 leading-relaxed">
-                      সমিতির সর্বমোট গচ্ছিত ক্যাশ ব্যালেন্স (কেশে অবশিষ্ট)। সকল সদস্যের তথ্য সুরক্ষার্থে এটি লাইভ আপডেট রাখা হয়।
+                      ঋণগ্রহীতার সঞ্চয় অ্যাকাউন্টে জমাকৃত ব্যালেন্স। এই ফিচারটির মাধ্যমে সঞ্চয়টি অন্য কোনো হিসাবে বা ক্যাশে যুক্ত না হয়ে শুধুমাত্র আপনার নিজস্ব ঋণগ্রহীতা সঞ্চয় ডায়েরিতে জমা থাকে।
                     </div>
                   </div>
                 </div>
@@ -1899,19 +1963,26 @@ export default function App() {
                       <div className={`p-3.5 border-l-4 rounded-xl text-xs leading-relaxed whitespace-pre-wrap font-sans font-semibold ${
                         darkMode ? 'bg-rose-950/30 border-rose-500 text-rose-200' : 'bg-rose-50 border-rose-600 text-rose-900'
                       }`}>
-                        <div className="font-bold text-[10px] uppercase tracking-wider mb-0.5 text-rose-500">জরুরি অ্যালارت নোটিশ:</div>
+                        <div className="font-bold text-[10px] uppercase tracking-wider mb-0.5 text-rose-500">জরুরি অ্যালার্ট নোটিশ:</div>
                         {appConfig.noticeText}
                       </div>
                     )}
 
                     {/* Member-specific notice */}
                     {currentRole === 'member' && (
-                      appConfig.memberNoticeText ? (
-                        <div className={`p-3.5 border-l-4 rounded-xl text-xs leading-relaxed whitespace-pre-wrap font-sans font-medium ${
-                          darkMode ? 'bg-emerald-950/30 border-emerald-500 text-emerald-250' : 'bg-emerald-50 border-emerald-600 text-emerald-900'
-                        }`}>
-                          <div className="font-bold text-[10px] uppercase tracking-wider mb-0.5 text-emerald-600">সদস্য নোটিশ (Notice for Members):</div>
-                          {appConfig.memberNoticeText}
+                      notices.filter(n => n.category === 'member' || n.category === 'all').length > 0 ? (
+                        <div className="space-y-2.5">
+                          {notices.filter(n => n.category === 'member' || n.category === 'all').map((n) => (
+                            <div key={n.id} className={`p-3.5 border-l-4 rounded-xl text-xs leading-relaxed whitespace-pre-wrap font-sans font-medium ${
+                              darkMode ? 'bg-emerald-950/30 border-emerald-500 text-emerald-250' : 'bg-emerald-50 border-emerald-600 text-emerald-900'
+                            }`}>
+                              <div className="flex justify-between items-center mb-1">
+                                <span className="font-bold text-[10px] uppercase tracking-wider text-emerald-600">📢 সদস্য নোটিশ (Notice for Members):</span>
+                                <span className="text-[9px] text-slate-400 font-mono">{n.date}</span>
+                              </div>
+                              <p className="mt-1">{n.text}</p>
+                            </div>
+                          ))}
                         </div>
                       ) : (
                         <div className={`p-3.5 border-l-4 rounded-xl text-[11px] leading-relaxed ${
@@ -1925,12 +1996,19 @@ export default function App() {
 
                     {/* Shareholder-specific notice */}
                     {currentRole === 'owner' && (
-                      appConfig.shareholderNoticeText ? (
-                        <div className={`p-3.5 border-l-4 rounded-xl text-xs leading-relaxed whitespace-pre-wrap font-sans font-medium ${
-                          darkMode ? 'bg-blue-950/30 border-blue-500 text-blue-250' : 'bg-blue-50 border-blue-600 text-blue-900'
-                        }`}>
-                          <div className="font-bold text-[10px] uppercase tracking-wider mb-0.5 text-blue-600">অংশীদার নোটিশ (Notice for Shareholders):</div>
-                          {appConfig.shareholderNoticeText}
+                      notices.filter(n => n.category === 'shareholder' || n.category === 'all').length > 0 ? (
+                        <div className="space-y-2.5">
+                          {notices.filter(n => n.category === 'shareholder' || n.category === 'all').map((n) => (
+                            <div key={n.id} className={`p-3.5 border-l-4 rounded-xl text-xs leading-relaxed whitespace-pre-wrap font-sans font-medium ${
+                              darkMode ? 'bg-blue-950/30 border-blue-500 text-blue-250' : 'bg-blue-50 border-blue-600 text-blue-900'
+                            }`}>
+                              <div className="flex justify-between items-center mb-1">
+                                <span className="font-bold text-[10px] uppercase tracking-wider text-blue-600">📢 অংশীদার নোটিশ (Notice for Shareholders):</span>
+                                <span className="text-[9px] text-slate-455 font-mono">{n.date}</span>
+                              </div>
+                              <p className="mt-1">{n.text}</p>
+                            </div>
+                          ))}
                         </div>
                       ) : (
                         <div className={`p-3.5 border-l-4 rounded-xl text-[11px] leading-relaxed ${
@@ -1944,14 +2022,29 @@ export default function App() {
 
                     {/* Admin sees a summary of both notices so they can visualize */}
                     {currentRole === 'admin' && (
-                      <div className="space-y-3">
-                        <div className={`p-3.5 border border-slate-100 dark:border-slate-800 rounded-xl text-xs leading-relaxed ${darkMode ? 'bg-slate-800/50' : 'bg-slate-50'}`}>
-                          <div className="font-bold text-[10px] text-emerald-600 mb-1">📢 সদস্যদের নোটিশ (সদস্যরা দেখছে):</div>
-                          <div className="text-slate-650 dark:text-slate-350 italic whitespace-pre-wrap">{appConfig.memberNoticeText || '(কোনো কাস্টম নোটিশ লেখা হয়নি)'}</div>
-                        </div>
-                        <div className={`p-3.5 border border-slate-100 dark:border-slate-800 rounded-xl text-xs leading-relaxed ${darkMode ? 'bg-slate-800/50' : 'bg-slate-50'}`}>
-                          <div className="font-bold text-[10px] text-blue-600 mb-1">📢 শেয়ার হোল্ডারদের নোটিশ (শেয়ার হোল্ডার দেখছে):</div>
-                          <div className="text-slate-650 dark:text-slate-350 italic whitespace-pre-wrap">{appConfig.shareholderNoticeText || '(কোনো কাস্টম নোটিশ লেখা হয়নি)'}</div>
+                      <div className="space-y-2.5">
+                        <div className="text-[10px] text-indigo-600 dark:text-indigo-400 font-bold mb-1">📢 ডাটাবেজে সংরক্ষিত আপনার মোট নোটিশ সংখ্যা: {notices.length}টি</div>
+                        <div className="max-h-[200px] overflow-y-auto space-y-2 pr-1">
+                          {notices.slice(0, 5).map((n) => (
+                            <div key={n.id} className={`p-3 border rounded-xl text-xs leading-relaxed ${
+                              darkMode ? 'bg-slate-800/40 border-slate-700 text-slate-300' : 'bg-slate-50 border-slate-100 text-slate-650'
+                            }`}>
+                              <div className="flex justify-between items-center mb-1 text-[8.5px]">
+                                <span className={`font-bold px-1.5 py-0.5 rounded-full ${
+                                  n.category === 'member' ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/20' :
+                                  n.category === 'shareholder' ? 'bg-blue-50 text-blue-600 dark:bg-blue-950/20' :
+                                  'bg-purple-100 text-purple-600 dark:bg-purple-950/20'
+                                }`}>
+                                  {n.category === 'member' ? 'সদস্য' : n.category === 'shareholder' ? 'অংশীদার' : 'সবার জন্য'}
+                                </span>
+                                <span className="text-slate-400 font-mono">{n.date}</span>
+                              </div>
+                              <div className="whitespace-pre-wrap italic line-clamp-2 mt-1">{n.text}</div>
+                            </div>
+                          ))}
+                          {notices.length === 0 && (
+                            <p className="text-[11px] italic text-slate-400 text-center py-2">কোনো সংরক্ষিত নোটিশ নেই।</p>
+                          )}
                         </div>
                       </div>
                     )}
@@ -2039,6 +2132,9 @@ export default function App() {
               appConfig={appConfig}
               onUpdateAppConfig={handleUpdateAppConfig}
               overdueMembersList={overdueMembersList}
+              notices={notices}
+              onAddNotice={handleAddNotice}
+              onDeleteNotice={handleDeleteNotice}
             />
           )}
 
