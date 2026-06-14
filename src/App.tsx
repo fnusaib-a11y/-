@@ -1972,104 +1972,134 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* Side interactive card: Bulletins/System Notification alerts (Requirement 10) */}
-                <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800 p-4 md:p-6 text-left shadow-sm space-y-4">
-                  <h3 className="text-sm font-bold text-slate-700 dark:text-slate-100 flex items-center gap-1.5 border-b border-zinc-100 dark:border-slate-800 pb-3">
-                    <ShieldAlert className="h-4 w-4 text-amber-500 animate-pulse" />
-                    সমিতি নোটিশ প্যানেল
-                  </h3>
-
-                  <div className="space-y-3">
-                    {/* General/Emergency alert notice shown to all, if exists */}
-                    {appConfig.noticeText && (
-                      <div className={`p-3.5 border-l-4 rounded-xl text-xs leading-relaxed whitespace-pre-wrap font-sans font-semibold ${
-                        darkMode ? 'bg-rose-950/30 border-rose-500 text-rose-200' : 'bg-rose-50 border-rose-600 text-rose-900'
-                      }`}>
-                        <div className="font-bold text-[10px] uppercase tracking-wider mb-0.5 text-rose-500">জরুরি অ্যালার্ট নোটিশ:</div>
-                        {appConfig.noticeText}
+                {/* Side column layout wrapping Cash Safe Vault Status and Notices */}
+                <div className="space-y-6">
+                  {/* Shareholder-specific: CASH SAFE VAULT STATUS */}
+                  {currentRole === 'owner' && (
+                    <div id="shareholder-cash-vault-card" className="p-5 bg-slate-900 text-slate-100 rounded-3xl border border-slate-800 shadow-lg space-y-4 relative overflow-hidden text-left animate-in fade-in slide-in-from-bottom-4 duration-300">
+                      <div className="absolute right-0 bottom-0 opacity-10 pointer-events-none transform translate-x-4 translate-y-4">
+                        <Wallet className="w-48 h-48 rotate-12 text-slate-100" />
                       </div>
-                    )}
-
-                    {/* Member-specific notice */}
-                    {currentRole === 'member' && (
-                      notices.filter(n => n.category === 'member' || n.category === 'all').length > 0 ? (
-                        <div className="space-y-2.5">
-                          {notices.filter(n => n.category === 'member' || n.category === 'all').map((n) => (
-                            <div key={n.id} className={`p-3.5 border-l-4 rounded-xl text-xs leading-relaxed whitespace-pre-wrap font-sans font-medium ${
-                              darkMode ? 'bg-emerald-950/30 border-emerald-500 text-emerald-250' : 'bg-emerald-50 border-emerald-600 text-emerald-900'
-                            }`}>
-                              <div className="flex justify-between items-center mb-1">
-                                <span className="font-bold text-[10px] uppercase tracking-wider text-emerald-600">📢 সদস্য নোটিশ (Notice for Members):</span>
-                                <span className="text-[9px] text-slate-400 font-mono">{n.date}</span>
-                              </div>
-                              <p className="mt-1">{n.text}</p>
-                            </div>
-                          ))}
+                      <div className="flex justify-between items-center border-b border-slate-800 pb-3">
+                        <div>
+                          <h4 className="text-xs font-bold text-emerald-400 font-sans tracking-wide uppercase">কেশের মোট ফান্ড (CASH SAFE VAULT STATUS)</h4>
+                          <p className="text-[9px] text-slate-400 mt-0.5">সবগুলো কেশে রাখার হিস্ট্রি থেকে গণনা করা মোট পরিমাণ</p>
                         </div>
-                      ) : (
-                        <div className={`p-3.5 border-l-4 rounded-xl text-[11px] leading-relaxed ${
-                          darkMode ? 'bg-slate-800 border-rose-500 text-slate-200' : 'bg-slate-50 border-rose-600 text-slate-600'
-                        }`}>
-                          <strong className={`block mb-1 font-sans font-bold ${darkMode ? 'text-slate-100' : 'text-slate-800'}`}>সদস্য লেনদেন সতর্কতা</strong>
-                          নির্ধারিত সময়ের মধ্যে কিস্তির টাকা ক্যাশে বা সঞ্চয় অ্যাকাউন্টে জমা দিন। সঞ্চয় বৃদ্ধি করুন, নিরাপদ ভবিষ্যৎ গড়ুন।
-                        </div>
-                      )
-                    )}
-
-                    {/* Shareholder-specific notice */}
-                    {currentRole === 'owner' && (
-                      notices.filter(n => n.category === 'shareholder' || n.category === 'all').length > 0 ? (
-                        <div className="space-y-2.5">
-                          {notices.filter(n => n.category === 'shareholder' || n.category === 'all').map((n) => (
-                            <div key={n.id} className={`p-3.5 border-l-4 rounded-xl text-xs leading-relaxed whitespace-pre-wrap font-sans font-medium ${
-                              darkMode ? 'bg-blue-950/30 border-blue-500 text-blue-250' : 'bg-blue-50 border-blue-600 text-blue-900'
-                            }`}>
-                              <div className="flex justify-between items-center mb-1">
-                                <span className="font-bold text-[10px] uppercase tracking-wider text-blue-600">📢 অংশীদার নোটিশ (Notice for Shareholders):</span>
-                                <span className="text-[9px] text-slate-455 font-mono">{n.date}</span>
-                              </div>
-                              <p className="mt-1">{n.text}</p>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <div className={`p-3.5 border-l-4 rounded-xl text-[11px] leading-relaxed ${
-                          darkMode ? 'bg-slate-800 border-zinc-500 text-slate-200' : 'bg-slate-50 border-zinc-650 text-slate-600'
-                        }`}>
-                          <strong className={`block mb-1 font-sans font-bold ${darkMode ? 'text-slate-100' : 'text-slate-800'}`}>অংশীদার কল্যাণ বার্তা</strong>
-                          সম্মানিত শেয়ার হোল্ডার ও অংশীদারদের হিসাব নিয়মিত নীরিক্ষা করার জন্য ড্যাশবোর্ড রিপোর্ট চেক করার পরামর্শ দেওয়া হলো।
-                        </div>
-                      )
-                    )}
-
-                    {/* Admin sees a summary of both notices so they can visualize */}
-                    {currentRole === 'admin' && (
-                      <div className="space-y-2.5">
-                        <div className="text-[10px] text-indigo-600 dark:text-indigo-400 font-bold mb-1">📢 ডাটাবেজে সংরক্ষিত আপনার মোট নোটিশ সংখ্যা: {notices.length}টি</div>
-                        <div className="max-h-[250px] overflow-y-auto space-y-2 pr-1">
-                          {notices.map((n) => (
-                            <div key={n.id} className={`p-3 border rounded-xl text-xs leading-relaxed ${
-                              darkMode ? 'bg-slate-800/40 border-slate-700 text-slate-300' : 'bg-slate-50 border-slate-100 text-slate-650'
-                            }`}>
-                              <div className="flex justify-between items-center mb-1 text-[8.5px]">
-                                <span className={`font-bold px-1.5 py-0.5 rounded-full ${
-                                  n.category === 'member' ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/20' :
-                                  n.category === 'shareholder' ? 'bg-blue-50 text-blue-600 dark:bg-blue-950/20' :
-                                  'bg-purple-100 text-purple-600 dark:bg-purple-950/20'
-                                }`}>
-                                  {n.category === 'member' ? 'সদস্য' : n.category === 'shareholder' ? 'অংশীদার' : 'সবার জন্য'}
-                                </span>
-                                <span className="text-slate-400 font-mono">{n.date}</span>
-                              </div>
-                              <div className="whitespace-pre-wrap italic line-clamp-2 mt-1">{n.text}</div>
-                            </div>
-                          ))}
-                          {notices.length === 0 && (
-                            <p className="text-[11px] italic text-slate-400 text-center py-2">কোনো সংরক্ষিত নোটিশ নেই।</p>
-                          )}
-                        </div>
+                        <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></div>
                       </div>
-                    )}
+
+                      <div className="py-2.5 relative z-10">
+                        <span className="text-[10px] text-slate-400 block font-semibold">কেশে সংরক্ষিত বর্তমান মোট খতিয়ান স্থিতি:</span>
+                        <strong className="text-2xl sm:text-3xl font-sans tracking-wide text-emerald-400 block mt-1">
+                          {toBengaliDigits(cashVaultLogs.reduce((sum, item) => sum + item.amount, 0))} ৳ <span className="text-xs font-normal text-slate-400">({cashVaultLogs.reduce((sum, item) => sum + item.amount, 0)} Taka Total kept)</span>
+                        </strong>
+                      </div>
+
+                      <p className="text-[10px] text-slate-400 leading-relaxed font-sans mt-2 relative z-10">
+                        এটি কোনো স্বয়ংক্রিয় হিসাব নয়, বরং ম্যানেজার বা পরিচালক নিজে কেশ ফান্ডে (লকার, ক্যাশ বাক্স ইত্যাদি) যে ক্যাশ টাকা সংরক্ষণের এন্ট্রি দিয়েছেন তারই লিখিত ইতিহাস।
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Bulletins/System Notification alerts (Requirement 10) */}
+                  <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800 p-4 md:p-6 text-left shadow-sm space-y-4">
+                    <h3 className="text-sm font-bold text-slate-700 dark:text-slate-100 flex items-center gap-1.5 border-b border-zinc-100 dark:border-slate-800 pb-3">
+                      <ShieldAlert className="h-4 w-4 text-amber-500 animate-pulse" />
+                      সমিতি নোটিশ প্যানেল
+                    </h3>
+
+                    <div className="space-y-3">
+                      {/* General/Emergency alert notice shown to all, if exists */}
+                      {appConfig.noticeText && (
+                        <div className={`p-3.5 border-l-4 rounded-xl text-xs leading-relaxed whitespace-pre-wrap font-sans font-semibold ${
+                          darkMode ? 'bg-rose-950/30 border-rose-500 text-rose-200' : 'bg-rose-50 border-rose-600 text-rose-900'
+                        }`}>
+                          <div className="font-bold text-[10px] uppercase tracking-wider mb-0.5 text-rose-500">জরুরি অ্যালার্ট নোটিশ:</div>
+                          {appConfig.noticeText}
+                        </div>
+                      )}
+
+                      {/* Member-specific notice */}
+                      {currentRole === 'member' && (
+                        notices.filter(n => n.category === 'member' || n.category === 'all').length > 0 ? (
+                          <div className="space-y-2.5">
+                            {notices.filter(n => n.category === 'member' || n.category === 'all').map((n) => (
+                              <div key={n.id} className={`p-3.5 border-l-4 rounded-xl text-xs leading-relaxed whitespace-pre-wrap font-sans font-medium ${
+                                darkMode ? 'bg-emerald-950/30 border-emerald-500 text-emerald-250' : 'bg-emerald-50 border-emerald-600 text-emerald-900'
+                              }`}>
+                                <div className="flex justify-between items-center mb-1">
+                                  <span className="font-bold text-[10px] uppercase tracking-wider text-emerald-600">📢 সদস্য নোটিশ (Notice for Members):</span>
+                                  <span className="text-[9px] text-slate-400 font-mono">{n.date}</span>
+                                </div>
+                                <p className="mt-1">{n.text}</p>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className={`p-3.5 border-l-4 rounded-xl text-[11px] leading-relaxed ${
+                            darkMode ? 'bg-slate-800 border-rose-500 text-slate-200' : 'bg-slate-50 border-rose-600 text-slate-600'
+                          }`}>
+                            <strong className={`block mb-1 font-sans font-bold ${darkMode ? 'text-slate-100' : 'text-slate-800'}`}>সদস্য লেনদেন সতর্কতা</strong>
+                            নির্ধারিত সময়ের মধ্যে কিস্তির টাকা ক্যাশে বা সঞ্চয় অ্যাকাউন্টে জমা দিন। সঞ্চয় বৃদ্ধি করুন, নিরাপদ ভবিষ্যৎ গড়ুন।
+                          </div>
+                        )
+                      )}
+
+                      {/* Shareholder-specific notice */}
+                      {currentRole === 'owner' && (
+                        notices.filter(n => n.category === 'shareholder' || n.category === 'all').length > 0 ? (
+                          <div className="space-y-2.5">
+                            {notices.filter(n => n.category === 'shareholder' || n.category === 'all').map((n) => (
+                              <div key={n.id} className={`p-3.5 border-l-4 rounded-xl text-xs leading-relaxed whitespace-pre-wrap font-sans font-medium ${
+                                darkMode ? 'bg-blue-950/30 border-blue-500 text-blue-250' : 'bg-blue-50 border-blue-600 text-blue-900'
+                              }`}>
+                                <div className="flex justify-between items-center mb-1">
+                                  <span className="font-bold text-[10px] uppercase tracking-wider text-blue-600">📢 অংশীদার নোটিশ (Notice for Shareholders):</span>
+                                  <span className="text-[9px] text-slate-455 font-mono">{n.date}</span>
+                                </div>
+                                <p className="mt-1">{n.text}</p>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className={`p-3.5 border-l-4 rounded-xl text-[11px] leading-relaxed ${
+                            darkMode ? 'bg-slate-800 border-zinc-500 text-slate-200' : 'bg-slate-50 border-zinc-650 text-slate-600'
+                          }`}>
+                            <strong className={`block mb-1 font-sans font-bold ${darkMode ? 'text-slate-100' : 'text-slate-800'}`}>অংশীদার কল্যাণ বার্তা</strong>
+                            সম্মানিত শেয়ার হোল্ডার ও অংশীদারদের হিসাব নিয়মিত নীরিক্ষা করার জন্য ড্যাশবোর্ড রিপোর্ট চেক করার পরামর্শ দেওয়া হলো।
+                          </div>
+                        )
+                      )}
+
+                      {/* Admin sees a summary of both notices so they can visualize */}
+                      {currentRole === 'admin' && (
+                        <div className="space-y-2.5">
+                          <div className="text-[10px] text-indigo-600 dark:text-indigo-400 font-bold mb-1">📢 ডাটাবেজে সংরক্ষিত আপনার মোট নোটিশ সংখ্যা: {notices.length}টি</div>
+                          <div className="max-h-[250px] overflow-y-auto space-y-2 pr-1">
+                            {notices.map((n) => (
+                              <div key={n.id} className={`p-3 border rounded-xl text-xs leading-relaxed ${
+                                darkMode ? 'bg-slate-800/40 border-slate-700 text-slate-300' : 'bg-slate-50 border-slate-100 text-slate-650'
+                              }`}>
+                                <div className="flex justify-between items-center mb-1 text-[8.5px]">
+                                  <span className={`font-bold px-1.5 py-0.5 rounded-full ${
+                                    n.category === 'member' ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/20' :
+                                    n.category === 'shareholder' ? 'bg-blue-50 text-blue-600 dark:bg-blue-950/20' :
+                                    'bg-purple-100 text-purple-600 dark:bg-purple-950/20'
+                                  }`}>
+                                    {n.category === 'member' ? 'সদস্য' : n.category === 'shareholder' ? 'অংশীদার' : 'সবার জন্য'}
+                                  </span>
+                                  <span className="text-slate-400 font-mono">{n.date}</span>
+                                </div>
+                                <div className="whitespace-pre-wrap italic line-clamp-2 mt-1">{n.text}</div>
+                              </div>
+                            ))}
+                            {notices.length === 0 && (
+                              <p className="text-[11px] italic text-slate-400 text-center py-2">কোনো সংরক্ষিত নোটিশ নেই।</p>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
 
