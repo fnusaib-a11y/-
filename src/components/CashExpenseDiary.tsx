@@ -74,6 +74,7 @@ export default function CashExpenseDiary({
   const [vaultLocation, setVaultLocation] = useState('প্রধান ক্যাশ ড্রয়ার');
   const [vaultDate, setVaultDate] = useState(new Date().toISOString().split('T')[0]);
   const [vaultNote, setVaultNote] = useState('');
+  const [editingVaultId, setEditingVaultId] = useState<string | null>(null);
 
   // 12 Predefined Standard Expense Categories Labels & Icons
   const EXPENSE_CATEGORIES = [
@@ -174,7 +175,7 @@ export default function CashExpenseDiary({
     }
 
     const newLog: CashVaultLog = {
-      id: `CASH-${Date.now()}`,
+      id: editingVaultId || `CASH-${Date.now()}`,
       date: vaultDate,
       amount: amt,
       location: vaultLocation.trim(),
@@ -182,8 +183,30 @@ export default function CashExpenseDiary({
     };
 
     onAddCashVaultLog(newLog);
-    showAlert('সংরক্ষিত হয়েছে!', `${amt} টাকা সফলভাবে কেশে রাখার ডায়েরিতে যুক্ত করা হয়েছে।`);
+    if (editingVaultId) {
+      showAlert('হালনাগাদ হয়েছে!', `${amt} টাকা সফলভাবে কেশে রাখার ডাটা আপডেট করা হয়েছে।`);
+      setEditingVaultId(null);
+    } else {
+      showAlert('সংরক্ষিত হয়েছে!', `${amt} টাকা সফলভাবে কেশে রাখার ডায়েরিতে যুক্ত করা হয়েছে।`);
+    }
     setVaultAmount('');
+    setVaultNote('');
+    setVaultLocation('প্রধান ক্যাশ ড্রয়ার');
+  };
+
+  const handleEditVault = (log: CashVaultLog) => {
+    setEditingVaultId(log.id);
+    setVaultDate(log.date);
+    setVaultAmount(log.amount.toString());
+    setVaultLocation(log.location);
+    setVaultNote(log.note || '');
+  };
+
+  const handleCancelEditVault = () => {
+    setEditingVaultId(null);
+    setVaultAmount('');
+    setVaultLocation('প্রধান ক্যাশ ড্রয়ার');
+    setVaultDate(new Date().toISOString().split('T')[0]);
     setVaultNote('');
   };
 
@@ -449,12 +472,23 @@ export default function CashExpenseDiary({
               </div>
 
               {role !== 'member' && (
-                <button
-                  type="submit"
-                  className="w-full p-2.5 bg-[#1d8df5] hover:bg-blue-600 text-white rounded-xl text-xs font-bold shadow active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-1.5"
-                >
-                  <Check className="h-4.5 w-4.5" /> হিসাব খাতা এন্ট্রি যোগ করুন
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    type="submit"
+                    className="flex-1 p-2.5 bg-[#1d8df5] hover:bg-blue-600 text-white rounded-xl text-xs font-bold shadow active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                  >
+                    <Check className="h-4.5 w-4.5" /> {editingVaultId ? 'হালনাগাদ (সম্পাদনা) করুন' : 'হিসাব খাতা এন্ট্রি যোগ করুন'}
+                  </button>
+                  {editingVaultId && (
+                    <button
+                      type="button"
+                      onClick={handleCancelEditVault}
+                      className="px-3.5 py-2.5 bg-slate-100 hover:bg-slate-205 text-slate-700 rounded-xl text-xs font-bold transition-all cursor-pointer"
+                    >
+                      বাতিল
+                    </button>
+                  )}
+                </div>
               )}
             </form>
           </div>
@@ -498,7 +532,7 @@ export default function CashExpenseDiary({
                       <th className="p-3">পরিমাণ</th>
                       <th className="p-3">কোথায় রাখলেন (স্থান)</th>
                       <th className="p-3">মন্তব্য / বিবরণ</th>
-                      {role === 'admin' && <th className="p-3 text-center">কন্ট্রোল</th>}
+                      {(role === 'admin' || role === 'owner') && <th className="p-3 text-center">কন্ট্রোল</th>}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 font-sans text-slate-700">
@@ -511,27 +545,38 @@ export default function CashExpenseDiary({
                           <td className="p-3 text-slate-500 italic max-w-xs truncate" title={log.note || ''}>
                             {log.note || '—'}
                           </td>
-                          {role === 'admin' && (
+                          {(role === 'admin' || role === 'owner') && (
                             <td className="p-3 text-center">
-                              <button
-                                onClick={() => {
-                                  showConfirm(
-                                    'কেশের তথ্য ডিলিট',
-                                    'আপনি কি নিশ্চিত কেশে রাখার লগের এই ডাটাটি ডিলিট করতে চান?',
-                                    () => onDeleteCashVaultLog(log.id)
-                                  );
-                                }}
-                                className="text-rose-600 hover:text-rose-800 hover:underline text-[10px]"
-                              >
-                                মুছুন
-                              </button>
+                              <div className="flex items-center justify-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => handleEditVault(log)}
+                                  className="text-blue-600 hover:text-blue-800 hover:underline text-[10.5px] font-semibold"
+                                >
+                                  এডিট
+                                </button>
+                                <span className="text-slate-300">|</span>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    showConfirm(
+                                      'কেশের তথ্য ডিলিট',
+                                      'আপনি কি নিশ্চিত কেশে রাখার লগের এই ডাটাটি ডিলিট করতে চান?',
+                                      () => onDeleteCashVaultLog(log.id)
+                                    );
+                                  }}
+                                  className="text-rose-600 hover:text-rose-800 hover:underline text-[10.5px] font-semibold"
+                                >
+                                  মুছুন
+                                </button>
+                              </div>
                             </td>
                           )}
                         </tr>
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={5} className="text-center p-8 text-slate-400">
+                        <td colSpan={(role === 'admin' || role === 'owner') ? 5 : 4} className="text-center p-8 text-slate-400">
                           কেশে টাকা রাখার ডায়েরিতে কোনো এন্ট্রি পাওয়া যায়নি।
                         </td>
                       </tr>

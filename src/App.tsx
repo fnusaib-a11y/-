@@ -141,7 +141,7 @@ export default function App() {
       navigate('/dashboard', { replace: true });
       return;
     }
-    if (tabName === 'diary' && currentRole !== 'admin') {
+    if (tabName === 'diary' && currentRole !== 'admin' && currentRole !== 'owner') {
       navigate('/dashboard', { replace: true });
       return;
     }
@@ -905,8 +905,8 @@ export default function App() {
 
   // CRUD Event: Add Cash Vault Log ("কেশে কত টাকা রাখলাম")
   const handleAddCashVaultLog = async (log: CashVaultLog) => {
-    if (currentRole !== 'admin') {
-      alert('দুঃখিত, শুধুমাত্র এডমিনই এন্ট্রি বা পরিবর্তন করতে পারবেন।');
+    if (currentRole !== 'admin' && currentRole !== 'owner') {
+      alert('দুঃখিত, শুধুমাত্র এডমিন ও পরিচালকই এন্ট্রি বা পরিবর্তন করতে পারবেন।');
       return;
     }
     try {
@@ -919,8 +919,8 @@ export default function App() {
 
   // CRUD Event: Delete Cash Vault Log
   const handleDeleteCashVaultLog = async (id: string) => {
-    if (currentRole !== 'admin') {
-      alert('দুঃখিত, শুধুমাত্র এডমিনই এন্ট্রি বা পরিবর্তন করতে পারবেন।');
+    if (currentRole !== 'admin' && currentRole !== 'owner') {
+      alert('দুঃখিত, শুধুমাত্র এডমিন ও পরিচালকই এন্ট্রি বা পরিবর্তন করতে পারবেন।');
       return;
     }
     try {
@@ -1622,7 +1622,7 @@ export default function App() {
             </button>
           )}
 
-          {currentRole === 'admin' && (
+          {(currentRole === 'admin' || currentRole === 'owner') && (
             <button
               onClick={() => changeTab('diary')}
               className={`w-full py-2.5 px-3 rounded-xl text-xs font-semibold text-left flex items-center gap-2 cursor-pointer transition-all ${
@@ -1890,7 +1890,7 @@ export default function App() {
               )}
 
               {/* Quick Folder Shortcuts designed as real file folders */}
-              {currentRole === 'admin' && (
+              {(currentRole === 'admin' || currentRole === 'owner') && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {/* Folder 1: Monthly Expenses */}
                   <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-3xl p-5 shadow-sm text-left flex flex-col md:flex-row justify-between items-start md:items-center gap-4 relative overflow-hidden group">
@@ -2160,7 +2160,7 @@ export default function App() {
           )}
 
           {/* TAB 7: CASH & OPERATIONAL EXPENSES DIARY */}
-          {activeTab === 'diary' && currentRole === 'admin' && (
+          {activeTab === 'diary' && (currentRole === 'admin' || currentRole === 'owner') && (
             <CashExpenseDiary
               role={currentRole}
               monthlyExpenses={monthlyExpenses}
@@ -2274,13 +2274,13 @@ export default function App() {
             </button>
           )}
 
-          {/* TAB 7: Cash & Expense Diary (Admin Only) */}
-          {currentRole === 'admin' && (
+          {/* TAB 7: Cash & Expense Diary (Admin & Owner) */}
+          {(currentRole === 'admin' || currentRole === 'owner') && (
             <button
               onClick={() => changeTab('diary')}
               className={`flex flex-col items-center justify-center gap-1 cursor-pointer transition-colors ${
                 activeTab === 'diary'
-                  ? 'text-emerald-500'
+                  ? (currentRole === 'admin' ? 'text-emerald-500' : 'text-blue-500')
                   : 'text-slate-400 hover:text-slate-600'
               }`}
             >
