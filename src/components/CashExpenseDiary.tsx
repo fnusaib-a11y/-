@@ -533,7 +533,7 @@ export default function CashExpenseDiary({
                       <th className="p-3">পরিমাণ</th>
                       <th className="p-3">কোথায় রাখলেন (স্থান)</th>
                       <th className="p-3">মন্তব্য / বিবরণ</th>
-                      {(role === 'admin' || role === 'owner') && <th className="p-3 text-center">কন্ট্রোল</th>}
+                      {role === 'admin' && <th className="p-3 text-center">কন্ট্রোল</th>}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 font-sans text-slate-700">
@@ -546,7 +546,7 @@ export default function CashExpenseDiary({
                           <td className="p-3 text-slate-500 italic max-w-xs truncate" title={log.note || ''}>
                             {log.note || '—'}
                           </td>
-                          {(role === 'admin' || role === 'owner') && (
+                          {role === 'admin' && (
                             <td className="p-3 text-center">
                               <div className="flex items-center justify-center gap-2">
                                 <button
@@ -577,7 +577,7 @@ export default function CashExpenseDiary({
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={(role === 'admin' || role === 'owner') ? 5 : 4} className="text-center p-8 text-slate-400">
+                        <td colSpan={role === 'admin' ? 5 : 4} className="text-center p-8 text-slate-400">
                           কেশে টাকা রাখার ডায়েরিতে কোনো এন্ট্রি পাওয়া যায়নি।
                         </td>
                       </tr>
@@ -611,7 +611,7 @@ export default function CashExpenseDiary({
                         </p>
                       )}
 
-                      {(role === 'admin' || role === 'owner') && (
+                      {role === 'admin' && (
                         <div className="flex justify-end gap-2 pt-2.5 border-t border-slate-100">
                           <button
                             type="button"
