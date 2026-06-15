@@ -4,7 +4,7 @@ import {
   Wallet, Folder, FileText, PlusCircle, Trash2, ShieldAlert, 
   AlertCircle, Calendar, Receipt, DollarSign, BookOpen, Coffee, 
   Lightbulb, Globe, Car, Home, UtensilsCrossed, Printer, ShieldCheck, 
-  Trash, Eye, PenTool, Sparkles, Download, Check
+  Trash, Eye, PenTool, Sparkles, Download, Check, Pencil
 } from 'lucide-react';
 import { downloadPdf } from '../utils/pdfHelper';
 
@@ -520,12 +520,13 @@ export default function CashExpenseDiary({
               </p>
             </div>
 
-            {/* Logs table */}
+            {/* Logs table & cards */}
             <div className="space-y-3">
               <h4 className="text-xs font-bold text-slate-400 tracking-wider">কেশে রাখার সাম্প্রতিক লেনদেনসমূহ ({cashVaultLogs.length})</h4>
               
-              <div className="bg-white border border-slate-100 rounded-2xl overflow-hidden shadow-xs">
-                <table className="w-full text-left text-xs border-collapse">
+              {/* DESKTOP TABLE VIEW */}
+              <div className="hidden md:block bg-white border border-slate-100 rounded-2xl overflow-x-auto shadow-xs">
+                <table className="w-full text-left text-xs border-collapse min-w-[550px]">
                   <thead>
                     <tr className="bg-slate-50 text-slate-500 border-b border-slate-205">
                       <th className="p-3">তারিখ</th>
@@ -551,9 +552,9 @@ export default function CashExpenseDiary({
                                 <button
                                   type="button"
                                   onClick={() => handleEditVault(log)}
-                                  className="text-blue-600 hover:text-blue-800 hover:underline text-[10.5px] font-semibold"
+                                  className="text-blue-600 hover:text-blue-800 hover:underline text-[10.5px] font-semibold flex items-center gap-1 cursor-pointer"
                                 >
-                                  এডিট
+                                  <Pencil className="h-3 w-3" /> এডিট
                                 </button>
                                 <span className="text-slate-300">|</span>
                                 <button
@@ -565,9 +566,9 @@ export default function CashExpenseDiary({
                                       () => onDeleteCashVaultLog(log.id)
                                     );
                                   }}
-                                  className="text-rose-600 hover:text-rose-800 hover:underline text-[10.5px] font-semibold"
+                                  className="text-rose-600 hover:text-rose-800 hover:underline text-[10.5px] font-semibold flex items-center gap-1 cursor-pointer"
                                 >
-                                  মুছুন
+                                  <Trash2 className="h-3 w-3" /> মুছুন
                                 </button>
                               </div>
                             </td>
@@ -583,6 +584,64 @@ export default function CashExpenseDiary({
                     )}
                   </tbody>
                 </table>
+              </div>
+
+              {/* MOBILE CARD LIST VIEW (For App and Small Screens) */}
+              <div className="block md:hidden space-y-3">
+                {cashVaultLogs.length > 0 ? (
+                  cashVaultLogs.map((log) => (
+                    <div key={log.id} className="bg-white border border-slate-100 rounded-2xl p-4 shadow-sm space-y-3 text-left">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <span className="text-[10px] bg-slate-50 border border-slate-200 text-slate-500 rounded-full px-2.5 py-0.5 font-mono inline-block">
+                            {log.date}
+                          </span>
+                          <h5 className="text-xs font-bold text-slate-800 mt-2">
+                            স্থান: {log.location}
+                          </h5>
+                        </div>
+                        <span className="text-xs font-bold text-emerald-600 bg-emerald-50 border border-emerald-100 px-2 py-1 rounded-lg">
+                          +{toBengaliDigits(log.amount)} ৳
+                        </span>
+                      </div>
+
+                      {log.note && (
+                        <p className="text-[11px] text-slate-500 bg-slate-50/70 p-2.5 rounded-xl border border-slate-100 italic leading-relaxed">
+                          "{log.note}"
+                        </p>
+                      )}
+
+                      {(role === 'admin' || role === 'owner') && (
+                        <div className="flex justify-end gap-2 pt-2.5 border-t border-slate-100">
+                          <button
+                            type="button"
+                            onClick={() => handleEditVault(log)}
+                            className="bg-blue-50 text-blue-600 active:bg-blue-100 px-3 py-1.5 rounded-xl text-xs font-extrabold flex items-center gap-1 cursor-pointer"
+                          >
+                            <Pencil className="h-3 w-3" /> এডিট
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              showConfirm(
+                                'কেশের তথ্য ডিলিট',
+                                'আপনি কি নিশ্চিত কেশে রাখার লগের এই ডাটাটি ডিলিট করতে চান?',
+                                () => onDeleteCashVaultLog(log.id)
+                              );
+                            }}
+                            className="bg-rose-50 text-rose-600 active:bg-rose-100 px-3 py-1.5 rounded-xl text-xs font-extrabold flex items-center gap-1 cursor-pointer"
+                          >
+                            <Trash2 className="h-3 w-3" /> মুছুন
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  ))
+                ) : (
+                  <div className="p-8 bg-white border border-slate-100 rounded-2xl text-center text-slate-400 text-xs">
+                    কেশে টাকা রাখার ডায়েরিতে কোনো এন্ট্রি পাওয়া যায়নি।
+                  </div>
+                )}
               </div>
             </div>
           </div>
