@@ -1340,8 +1340,8 @@ export default function App() {
 
   const totalLoanPenalties = loanRepayments.reduce((sum, item) => sum + (item.penaltyPaid || 0), 0);
 
-  // Net Cash Balance includes all collections (savings, loan principal repaid, loan interest profit, loan penalties, custom income/surplus) minus disbursements & expenses!
-  const totalCashBalanceOfCoop = totalSavingsSum + totalLoansRecoveredPrincipal + totalLoanPercentProfit + totalLoanPenalties + customIncomeSum + customSurplusSum - totalLoansDisbursedPrincipal - customExpenseSum;
+  // Net Cash Balance includes all collections but EXCLUDES savings deposits (as per user request: savings does not count to cash/main balance)
+  const totalCashBalanceOfCoop = totalLoansRecoveredPrincipal + totalLoanPercentProfit + totalLoanPenalties + customIncomeSum + customSurplusSum - totalLoansDisbursedPrincipal - customExpenseSum;
 
   const todayDateStr = new Date().toISOString().split('T')[0];
   const todaySavingsCollectionsSum = installments

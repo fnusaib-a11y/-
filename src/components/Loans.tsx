@@ -164,9 +164,16 @@ export default function Loans({ members, loans, onAddLoan, onRepayLoan, onDelete
       return;
     }
 
-    const remaining = selectedRepayLoan.principalAmount - selectedRepayLoan.repaidAmount;
-    if (principal > remaining) {
-      showAlert('আসল বেশি!', `দুঃখিত, পরিশোধের আসল পরিমাণ বকেয়া ঋণের চেয়ে বেশি হতে পারে না! সর্বোচ্চ বকেয়া আসল: ${remaining} ৳`);
+    const origPrincipal = selectedRepayLoan.originalPrincipal || (selectedRepayLoan.principalAmount - (selectedRepayLoan.profitAmount || 0));
+    const remainingPrincipal = origPrincipal - selectedRepayLoan.repaidAmount;
+    const remainingProfit = (selectedRepayLoan.profitAmount || 0) - (selectedRepayLoan.profitRepaid || 0);
+
+    if (principal > remainingPrincipal) {
+      showAlert('আসল বেশি!', `দুঃখিত, পরিশোধের আসল পরিমাণ বকেয়া আসল ঋণের চেয়ে বেশি হতে পারে না! সর্বোচ্চ বকেয়া আসল: ${remainingPrincipal} ৳`);
+      return;
+    }
+    if (profit > remainingProfit) {
+      showAlert('মুনাফা বেশি!', `দুঃখিত, পরিশোধের লাভ বা মুনাফার পরিমাণ বকেয়া লাভ বা মুনাফার চেয়ে বেশি হতে পারে না! সর্বোচ্চ বকেয়া লাভ/মুনাফা: ${remainingProfit} ৳`);
       return;
     }
 
@@ -240,7 +247,7 @@ export default function Loans({ members, loans, onAddLoan, onRepayLoan, onDelete
 
     const schedule = [];
     let runnerDate = new Date(selectedRepayLoan.takenDate);
-    let runningPaidProgress = selectedRepayLoan.repaidAmount || 0;
+    let runningPaidProgress = (selectedRepayLoan.repaidAmount || 0) + (selectedRepayLoan.profitRepaid || 0);
 
     for (let i = 1; i <= estCount; i++) {
       if (intervalType === 'weekly') {
@@ -292,7 +299,7 @@ export default function Loans({ members, loans, onAddLoan, onRepayLoan, onDelete
       const totalAmount = selectedRepayLoan.principalAmount;
       const singleAmt = selectedRepayLoan.installmentAmount || Math.round(totalAmount / 12);
       
-      const paidAmt = selectedRepayLoan.repaidAmount || 0;
+      const paidAmt = (selectedRepayLoan.repaidAmount || 0) + (selectedRepayLoan.profitRepaid || 0);
       const nextIdx = Math.floor(paidAmt / singleAmt) + 1;
       
       let runnerDate = new Date(selectedRepayLoan.takenDate);
@@ -608,7 +615,7 @@ export default function Loans({ members, loans, onAddLoan, onRepayLoan, onDelete
                   <div className="flex justify-between items-center border-t border-emerald-100 pt-1.5">
                     <span className="text-slate-500">বকেয়া ঋণ অবশিষ্ট:</span>
                     <strong className="font-mono text-rose-600 font-extrabold text-sm">
-                      {selectedRepayLoan.principalAmount - selectedRepayLoan.repaidAmount} ৳
+                      {selectedRepayLoan.principalAmount - ((selectedRepayLoan.repaidAmount || 0) + (selectedRepayLoan.profitRepaid || 0))} ৳
                     </strong>
                   </div>
                 </div>
@@ -657,7 +664,7 @@ export default function Loans({ members, loans, onAddLoan, onRepayLoan, onDelete
                           setRepayInstallmentNo(`${idx}তম কিস্তি (${monthLabel})`);
                           
                           const totalAmount = selectedRepayLoan.principalAmount;
-                          const paidAmt = selectedRepayLoan.repaidAmount || 0;
+                          const paidAmt = (selectedRepayLoan.repaidAmount || 0) + (selectedRepayLoan.profitRepaid || 0);
                           const remainingTotal = totalAmount - paidAmt;
                           setRepayPrincipalAmount(Math.min(amt, remainingTotal).toString());
                         }}
@@ -685,7 +692,7 @@ export default function Loans({ members, loans, onAddLoan, onRepayLoan, onDelete
                   {selectedRepayLoan && (() => {
                     const totalAmount = selectedRepayLoan.principalAmount;
                     const singleAmt = selectedRepayLoan.installmentAmount || Math.round(totalAmount / 12);
-                    const paidAmt = selectedRepayLoan.repaidAmount || 0;
+                    const paidAmt = (selectedRepayLoan.repaidAmount || 0) + (selectedRepayLoan.profitRepaid || 0);
                     const nextIdx = Math.floor(paidAmt / singleAmt) + 1;
                     
                     const paidCount = nextIdx - 1;
@@ -858,7 +865,7 @@ export default function Loans({ members, loans, onAddLoan, onRepayLoan, onDelete
                           setRepayInstallmentNo(`${item.index}তম কিস্তি (${monthLabel})`);
                           
                           const totalAmount = selectedRepayLoan.principalAmount;
-                          const paidAmt = selectedRepayLoan.repaidAmount || 0;
+                          const paidAmt = (selectedRepayLoan.repaidAmount || 0) + (selectedRepayLoan.profitRepaid || 0);
                           const remainingTotal = totalAmount - paidAmt;
                           setRepayPrincipalAmount(Math.min(item.expectedAmount, remainingTotal).toString());
                         }

@@ -98,8 +98,8 @@ export default function Reports({ members, installments, loans, role, ledger, lo
   const totalPercentageProfitSumOfCoop = totalSavingsPercentProfitOfCoop + totalLoanPercentProfitOfCoop;
   const totalLoanPenaltiesOfCoop = loanRepayments.reduce((sum, item) => sum + (item.penaltyPaid || 0), 0);
 
-  // Net Cash Balance includes all collections (savings, loan principal repaid, loan interest profit, loan penalties, custom income/surplus) minus disbursements & expenses!
-  const totalCashBalanceOfCoop = totalSavingsSumOfCoop + totalLoansRecoveredPrincipalOfCoop + totalLoanPercentProfitOfCoop + totalLoanPenaltiesOfCoop + customIncome + customSurplus - totalLoansDisbursedPrincipalOfCoop - customExpense;
+  // Net Cash Balance includes all collections but EXCLUDES savings deposits (as per user request: savings does not count to cash/main balance)
+  const totalCashBalanceOfCoop = totalLoansRecoveredPrincipalOfCoop + totalLoanPercentProfitOfCoop + totalLoanPenaltiesOfCoop + customIncome + customSurplus - totalLoansDisbursedPrincipalOfCoop - customExpense;
 
   // PRINT Trigger helper
   const handlePrintReport = (elementId: string, title: string) => {
@@ -650,9 +650,9 @@ export default function Reports({ members, installments, loans, role, ledger, lo
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs leading-relaxed font-sans">
                     <div className="space-y-1.5 border-b md:border-b-0 md:border-r border-slate-800 pb-3 md:pb-0 md:pr-4">
                       <div className="text-[11px] font-bold text-emerald-400 pb-1 border-b border-emerald-950">কালেকশন ও জমা খাত (+)</div>
-                      <div className="flex justify-between">
-                        <span className="text-slate-400">মোট সংগৃহীত সঞ্চয় ও কিস্তি:</span>
-                        <span className="font-mono text-emerald-400 font-bold">+{totalSavingsSumOfCoop} ৳</span>
+                      <div className="flex justify-between opacity-50">
+                        <span className="text-slate-400">মোট সংগৃহীত সঞ্চয় (মেইন ক্যাশ বহির্ভূত):</span>
+                        <span className="font-mono text-slate-350">{totalSavingsSumOfCoop} ৳ (আলাদা ঘর)</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-slate-400">মোট আদায়কৃত লোন আসল সংগ্রহ:</span>

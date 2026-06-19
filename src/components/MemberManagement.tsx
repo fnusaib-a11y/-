@@ -51,10 +51,10 @@ export default function MemberManagement({ members, onAddMember, onUpdateMember,
   const [pin, setPin] = useState('');
   const [status, setStatus] = useState<'active' | 'inactive'>('active');
   const [photoUrl, setPhotoUrl] = useState('');
-  const [memberCategory, setMemberCategory] = useState<'savings_only' | 'borrower'>('savings_only');
+  const [memberCategory, setMemberCategory] = useState<'savings_only' | 'borrower' | 'percent_member' | 'percent_borrower'>('savings_only');
 
   // List filter state
-  const [listCategory, setListCategory] = useState<'all' | 'savings_only' | 'borrower'>('savings_only');
+  const [listCategory, setListCategory] = useState<'all' | 'savings_only' | 'borrower' | 'percent_member' | 'percent_or_loan'>('savings_only');
 
   // Camera & Upload auxiliary states
   const [showWebcam, setShowWebcam] = useState(false);
@@ -71,7 +71,11 @@ export default function MemberManagement({ members, onAddMember, onUpdateMember,
     // Check if category matches
     if (listCategory !== 'all') {
       const cat = m.memberCategory || 'borrower';
-      if (cat !== listCategory) return false;
+      if (listCategory === 'percent_or_loan') {
+        if (cat !== 'percent_member' && cat !== 'percent_borrower' && cat !== 'borrower') return false;
+      } else {
+        if (cat !== listCategory) return false;
+      }
     }
 
     return (
@@ -495,8 +499,10 @@ export default function MemberManagement({ members, onAddMember, onUpdateMember,
                   onChange={(e) => setMemberCategory(e.target.value as any)}
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-250 rounded-lg text-sm font-bold text-slate-800 focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 outline-none"
                 >
-                  <option value="savings_only">শুধুমাত্র সঞ্চয়কারী সদস্য (Savings Only)</option>
-                  <option value="borrower">ঋণগ্রহীতা সদস্য (Borrower / Both)</option>
+                  <option value="savings_only">🏠 শুধুমাত্র সঞ্চয়কারী সদস্য (Savings Only)</option>
+                  <option value="borrower">💼 ঋণগ্রহীতা সদস্য (Borrower)</option>
+                  <option value="percent_member">📈 পারসেন্ট সদস্য (Percent Member)</option>
+                  <option value="percent_borrower">📊 পারসেন্ট ও লোন গ্রাহক (Percent & Loan Member)</option>
                 </select>
               </div>
 
@@ -659,13 +665,13 @@ export default function MemberManagement({ members, onAddMember, onUpdateMember,
               <button
                 type="button"
                 onClick={() => setListCategory('savings_only')}
-                className={`pb-3 pt-2 px-4 text-xs font-bold border-b-2 transition-all relative flex items-center gap-1.5 cursor-pointer ${
+                className={`pb-3 pt-2 px-3 text-xs font-bold border-b-2 transition-all relative flex items-center gap-1.5 cursor-pointer ${
                   listCategory === 'savings_only'
                     ? 'border-emerald-600 text-emerald-700'
                     : 'border-transparent text-slate-500 hover:text-slate-800'
                 }`}
               >
-                <span>🏠 শুধুমাত্র সঞ্চয়কারী সদস্য</span>
+                <span>🏠 শুধুমাত্র সঞ্চয়কারী</span>
                 <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-mono font-black ${
                   listCategory === 'savings_only' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-150 text-slate-600'
                 }`}>{members.filter(m => m.memberCategory === 'savings_only').length}</span>
@@ -674,7 +680,7 @@ export default function MemberManagement({ members, onAddMember, onUpdateMember,
               <button
                 type="button"
                 onClick={() => setListCategory('borrower')}
-                className={`pb-3 pt-2 px-4 text-xs font-bold border-b-2 transition-all relative flex items-center gap-1.5 cursor-pointer ${
+                className={`pb-3 pt-2 px-3 text-xs font-bold border-b-2 transition-all relative flex items-center gap-1.5 cursor-pointer ${
                   listCategory === 'borrower'
                     ? 'border-blue-600 text-blue-700'
                     : 'border-transparent text-slate-500 hover:text-slate-800'
@@ -684,6 +690,42 @@ export default function MemberManagement({ members, onAddMember, onUpdateMember,
                 <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-mono font-black ${
                   listCategory === 'borrower' ? 'bg-blue-100 text-blue-800' : 'bg-slate-150 text-slate-600'
                 }`}>{members.filter(m => (m.memberCategory || 'borrower') === 'borrower').length}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setListCategory('percent_member')}
+                className={`pb-3 pt-2 px-3 text-xs font-bold border-b-2 transition-all relative flex items-center gap-1.5 cursor-pointer ${
+                  listCategory === 'percent_member'
+                    ? 'border-teal-600 text-teal-700'
+                    : 'border-transparent text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                <span>📈 পারসেন্ট সদস্য</span>
+                <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-mono font-black ${
+                  listCategory === 'percent_member' ? 'bg-teal-100 text-teal-800' : 'bg-slate-150 text-slate-600'
+                }`}>{members.filter(m => m.memberCategory === 'percent_member').length}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setListCategory('percent_or_loan')}
+                className={`pb-3 pt-2 px-4 text-xs font-bold border-b-2 transition-all relative flex items-center gap-1.5 cursor-pointer ${
+                  listCategory === 'percent_or_loan'
+                    ? 'border-purple-600 text-purple-700 bg-purple-50/45 rounded-t-xl'
+                    : 'border-transparent text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                <div className="flex items-center gap-1">
+                  <span className="animate-pulse">📂</span>
+                  <span>পারসেন্ট ও লোন সদস্য ফোল্ডার</span>
+                </div>
+                <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-mono font-black ${
+                  listCategory === 'percent_or_loan' ? 'bg-purple-100 text-purple-800 animate-pulse' : 'bg-slate-150 text-slate-600'
+                }`}>{members.filter(m => {
+                  const cat = m.memberCategory || 'borrower';
+                  return cat === 'percent_member' || cat === 'percent_borrower' || cat === 'borrower';
+                }).length}</span>
               </button>
             </div>
 
@@ -745,9 +787,15 @@ export default function MemberManagement({ members, onAddMember, onUpdateMember,
                           <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-black ${
                             m.memberCategory === 'savings_only'
                               ? 'bg-emerald-50 text-emerald-700 border border-emerald-150'
+                              : m.memberCategory === 'percent_member'
+                              ? 'bg-teal-50 text-teal-750 border border-teal-150'
+                              : m.memberCategory === 'percent_borrower'
+                              ? 'bg-purple-50 text-purple-750 border border-purple-150'
                               : 'bg-blue-50 text-blue-700 border border-blue-150'
                           }`}>
-                            {m.memberCategory === 'savings_only' ? 'শুধুমাত্র সঞ্চয়কারী' : 'ঋণগ্রহীতা সদস্য'}
+                            {m.memberCategory === 'savings_only' ? 'শুধুমাত্র সঞ্চয়কারী' :
+                             m.memberCategory === 'percent_member' ? 'পারসেন্ট সদস্য' :
+                             m.memberCategory === 'percent_borrower' ? 'পারসেন্ট ও লোন গ্রাহক' : 'ঋণগ্রহীতা সদস্য'}
                           </span>
                         </td>
                         <td className="p-4">

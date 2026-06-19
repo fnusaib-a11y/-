@@ -110,7 +110,7 @@ export default function Installments({ members, installments, onAddInstallment, 
     if (m) {
       setAmount(m.targetInstallmentAmount ? m.targetInstallmentAmount.toString() : '');
       setInstType(m.type || 'weekly');
-      setIsBorrowerSavings(m.memberCategory === 'borrower');
+      setIsBorrowerSavings(m.memberCategory === 'borrower' || m.memberCategory === 'percent_borrower');
     } else {
       setAmount('');
       setInstType('weekly');
@@ -542,9 +542,17 @@ export default function Installments({ members, installments, onAddInstallment, 
                              </td>
                              <td className="p-4">
                                <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-bold ${
-                                 m.memberCategory === 'borrower' ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'
+                                 m.memberCategory === 'savings_only'
+                                   ? 'bg-emerald-100 text-emerald-800'
+                                   : m.memberCategory === 'percent_member'
+                                   ? 'bg-teal-100 text-teal-800'
+                                   : m.memberCategory === 'percent_borrower'
+                                   ? 'bg-purple-100 text-purple-800'
+                                   : 'bg-amber-100 text-amber-800'
                                }`}>
-                                 {m.memberCategory === 'borrower' ? 'ঋণগ্রহীতা (Borrower)' : 'শুধু সঞ্চয়কারী'}
+                                 {m.memberCategory === 'savings_only' ? 'শুধু সঞ্চয়কারী' :
+                                  m.memberCategory === 'percent_member' ? 'পারসেন্ট সদস্য' :
+                                  m.memberCategory === 'percent_borrower' ? 'পারসেন্ট ও লোন' : 'ঋণগ্রহীতা (Borrower)'}
                                </span>
                              </td>
                              <td className="p-4">
