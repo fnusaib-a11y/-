@@ -24,6 +24,7 @@ export type Installment = {
   date: string;
   type: 'daily' | 'weekly' | 'monthly';
   isBorrowerSavings?: boolean;
+  fixedProfitAmount?: number;
 };
 
 export type Loan = {
