@@ -134,7 +134,9 @@ export default function Loans({ members, loans, onAddLoan, onRepayLoan, onDelete
       interestPercent: coreRate,
       originalPrincipal: corePrincipal,
       profitAmount: computedProfit,
-      advanceSavingsAmount: coreAdvanceSavings
+      advanceSavingsAmount: coreAdvanceSavings,
+      installmentType: installmentType.toLowerCase() as 'daily' | 'weekly' | 'monthly',
+      installmentCount: parseInt(installmentCount) || 12
     };
 
     onAddLoan(newLoan);
@@ -230,11 +232,11 @@ export default function Loans({ members, loans, onAddLoan, onRepayLoan, onDelete
     if (!selectedRepayLoan) return [];
 
     const borrower = members.find(m => m.id === selectedRepayLoan.memberId);
-    const intervalType = borrower?.type || 'monthly'; // default to monthly
+    const intervalType = (selectedRepayLoan.installmentType || borrower?.type || 'monthly').toLowerCase();
 
     const totalAmount = selectedRepayLoan.principalAmount;
     const singleAmt = selectedRepayLoan.installmentAmount || Math.round(totalAmount / 12);
-    const estCount = Math.round(totalAmount / singleAmt) || 12;
+    const estCount = selectedRepayLoan.installmentCount || Math.round(totalAmount / singleAmt) || 12;
 
     const schedule = [];
     let runnerDate = new Date(selectedRepayLoan.takenDate);
@@ -285,7 +287,7 @@ export default function Loans({ members, loans, onAddLoan, onRepayLoan, onDelete
   useEffect(() => {
     if (selectedRepayLoan) {
       const borrower = members.find(m => m.id === selectedRepayLoan.memberId);
-      const intervalType = borrower?.type || 'monthly';
+      const intervalType = (selectedRepayLoan.installmentType || borrower?.type || 'monthly').toLowerCase();
       
       const totalAmount = selectedRepayLoan.principalAmount;
       const singleAmt = selectedRepayLoan.installmentAmount || Math.round(totalAmount / 12);
@@ -828,10 +830,20 @@ export default function Loans({ members, loans, onAddLoan, onRepayLoan, onDelete
                 <div className="border-b border-slate-200/60 pb-2 flex justify-between items-center">
                   <div>
                     <h4 className="text-xs font-black text-slate-800">স্বয়ংক্রিয় পরিশোধ ক্যালেন্ডার সূচী</h4>
-                    <span className="text-[9.5px] text-slate-500">১২ মাস কিস্তি প্রদানের দিন তারিখ খতিয়ান</span>
+                    <span className="text-[9.5px] text-slate-500">
+                      {toBengaliDigits(computedInstallmentSchedule.length)} {
+                        (selectedRepayLoan.installmentType || members.find(m => m.id === selectedRepayLoan.memberId)?.type || 'monthly').toLowerCase() === 'daily' ? 'টি দৈনিক' :
+                        (selectedRepayLoan.installmentType || members.find(m => m.id === selectedRepayLoan.memberId)?.type || 'monthly').toLowerCase() === 'weekly' ? 'টি সাপ্তাহিক' :
+                        'টি মাসিক'
+                      } কিস্তি প্রদানের দিন তারিখ খতিয়ান
+                    </span>
                   </div>
                   <span className="text-[9.5px] font-mono font-bold bg-slate-200 text-slate-700 px-2 py-0.5 rounded-lg">
-                    {members.find(m => m.id === selectedRepayLoan.memberId)?.type ? `টাইপ: ${members.find(m => m.id === selectedRepayLoan.memberId)?.type}` : 'মাসিক'}
+                    টাইপ: {
+                      (selectedRepayLoan.installmentType || members.find(m => m.id === selectedRepayLoan.memberId)?.type || 'monthly').toLowerCase() === 'daily' ? 'Daily' :
+                      (selectedRepayLoan.installmentType || members.find(m => m.id === selectedRepayLoan.memberId)?.type || 'monthly').toLowerCase() === 'weekly' ? 'Weekly' :
+                      'Monthly'
+                    }
                   </span>
                 </div>
 

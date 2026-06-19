@@ -499,6 +499,19 @@ export default function MemberManagement({ members, onAddMember, onUpdateMember,
                   <option value="borrower">ঋণগ্রহীতা সদস্য (Borrower / Both)</option>
                 </select>
               </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">সঞ্চয় বা কিস্তির প্রকার (Type) *</label>
+                <select
+                  value={type}
+                  onChange={(e) => setType(e.target.value as any)}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold text-slate-800 focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 outline-none"
+                >
+                  <option value="daily">দৈনিক সঞ্চয়/কিস্তি (Daily)</option>
+                  <option value="weekly">সাপ্তাহিক সঞ্চয়/কিস্তি (Weekly)</option>
+                  <option value="monthly">মাসিক সঞ্চয়/কিস্তি (Monthly)</option>
+                </select>
+              </div>
             </div>
 
             <div>

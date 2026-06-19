@@ -141,7 +141,7 @@ export default function App() {
       navigate('/dashboard', { replace: true });
       return;
     }
-    if (tabName === 'diary' && currentRole !== 'admin') {
+    if (tabName === 'diary' && currentRole !== 'admin' && currentRole !== 'owner') {
       navigate('/dashboard', { replace: true });
       return;
     }
@@ -1622,7 +1622,7 @@ export default function App() {
             </button>
           )}
 
-          {currentRole === 'admin' && (
+          {(currentRole === 'admin' || currentRole === 'owner') && (
             <button
                onClick={() => changeTab('diary')}
                className={`w-full py-2.5 px-3 rounded-xl text-xs font-semibold text-left flex items-center gap-2 cursor-pointer transition-all ${
@@ -2160,7 +2160,7 @@ export default function App() {
           )}
 
           {/* TAB 7: CASH & OPERATIONAL EXPENSES DIARY */}
-          {activeTab === 'diary' && currentRole === 'admin' && (
+          {activeTab === 'diary' && (currentRole === 'admin' || currentRole === 'owner') && (
             <CashExpenseDiary
               role={currentRole}
               monthlyExpenses={monthlyExpenses}
@@ -2198,7 +2198,7 @@ export default function App() {
         darkMode ? 'bg-slate-900 border-slate-800 text-slate-200' : 'bg-white border-slate-200 text-slate-700'
       } shadow-[0_-4px_16px_rgba(0,0,0,0.08)] pb-safe`}>
         <div className={`grid ${
-          currentRole === 'admin' ? 'grid-cols-7' : currentRole === 'owner' ? 'grid-cols-5' : 'grid-cols-3'
+          currentRole === 'admin' ? 'grid-cols-7' : currentRole === 'owner' ? 'grid-cols-6' : 'grid-cols-3'
         } h-16`}>
           
           {/* TAB 1: Dashboard */}
@@ -2274,13 +2274,13 @@ export default function App() {
             </button>
           )}
 
-          {/* TAB 7: Cash & Expense Diary (Admin Only) */}
-          {currentRole === 'admin' && (
+          {/* TAB 7: Cash & Expense Diary (Admin & Owner) */}
+          {(currentRole === 'admin' || currentRole === 'owner') && (
             <button
               onClick={() => changeTab('diary')}
               className={`flex flex-col items-center justify-center gap-1 cursor-pointer transition-colors ${
                 activeTab === 'diary'
-                  ? 'text-emerald-500'
+                  ? (currentRole === 'admin' ? 'text-emerald-500' : 'text-blue-500')
                   : 'text-slate-400 hover:text-slate-600'
               }`}
             >

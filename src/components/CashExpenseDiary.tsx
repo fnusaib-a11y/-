@@ -33,7 +33,9 @@ export default function CashExpenseDiary({
   onAddCashVaultLog,
   onDeleteCashVaultLog
 }: CashExpenseDiaryProps) {
-  const [activeDiaryTab, setActiveDiaryTab] = useState<'expenses' | 'vault'>('expenses');
+  const [activeDiaryTab, setActiveDiaryTab] = useState<'expenses' | 'vault'>(
+    role === 'owner' ? 'vault' : 'expenses'
+  );
   const [selectedExpenseDetail, setSelectedExpenseDetail] = useState<MonthlyExpense | null>(null);
 
   // Modern React Modal state for robust iframe compatibility
@@ -53,20 +55,20 @@ export default function CashExpenseDiary({
     setDialog({ isOpen: true, title, message, type: 'confirm', onConfirm: onConfirmClick });
   };
 
-  // Monthly Expense Form State (12 Expenses helper fields)
+  // Monthly Expense Form State
   const [selectedMonth, setSelectedMonth] = useState('2026-06');
-  const [expense1, setExpense1] = useState(''); // খাতা, কলম ও স্টেশনারি
-  const [expense2, setExpense2] = useState(''); // চা ও নাস্তা বিল
-  const [expense3, setExpense3] = useState(''); // বিদ্যুৎ বিল
-  const [expense4, setExpense4] = useState(''); // মোবাইল ও ইন্টারনেট বিল
-  const [expense5, setExpense5] = useState(''); // যাতায়াত ভাড়া
-  const [expense6, setExpense6] = useState(''); // অফিস ঘর ভাড়া
-  const [expense7, setExpense7] = useState(''); // আপ্যায়ন খরচ
-  const [expense8, setExpense8] = useState(''); // কার্টিজ ও প্রিন্টিং বিল
-  const [expense9, setExpense9] = useState(''); // নাইটগার্ড ও নিরাপত্তা বেতন
-  const [expense10, setExpense10] = useState(''); // মসজিদ বা দান ও সেবা
-  const [expense11, setExpense11] = useState(''); // পরিচ্ছন্নতা বিল
-  const [expense12, setExpense12] = useState(''); // বিবিধ আপৎকালীন খরচ
+  const [expense1, setExpense1] = useState('');
+  const [expense2, setExpense2] = useState('');
+  const [expense3, setExpense3] = useState('');
+  const [expense4, setExpense4] = useState('');
+  const [expense5, setExpense5] = useState('');
+  const [expense6, setExpense6] = useState('');
+  const [expense7, setExpense7] = useState('');
+  const [expense8, setExpense8] = useState('');
+  const [expense9, setExpense9] = useState('');
+  const [expense10, setExpense10] = useState('');
+  const [expense11, setExpense11] = useState('');
+  const [expense12, setExpense12] = useState('');
   const [expenseNote, setExpenseNote] = useState('');
 
   // Cash Vault Form State
@@ -92,7 +94,6 @@ export default function CashExpenseDiary({
     { key: 'expense12', label: 'বিবিধ ও সাধারণ খরচ (Miscellaneous)', helper: 'উপরে উল্লেখিত নয় এমন আপৎকালীন খরচ', icon: PenTool, setter: setExpense12, val: expense12 },
   ];
 
-  // Calculate live dynamic total
   const computeLiveTotal = () => {
     let sum = 0;
     sum += parseFloat(expense1) || 0;
@@ -119,7 +120,6 @@ export default function CashExpenseDiary({
       return;
     }
 
-    // Check duplicate month
     const monthExists = monthlyExpenses.some(m => m.month === selectedMonth);
     if (monthExists) {
       showConfirm(
@@ -168,6 +168,8 @@ export default function CashExpenseDiary({
 
   const handleVaultSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (role === 'owner') return; // Enforce security rules
+    
     const amt = parseFloat(vaultAmount);
     if (!amt || amt <= 0) {
       showAlert('ভুল পরিমাণ!', 'দয়া করে কেশে রাখার সঠিক টাকার পরিমাণ দিন!');
@@ -195,6 +197,7 @@ export default function CashExpenseDiary({
   };
 
   const handleEditVault = (log: CashVaultLog) => {
+    if (role === 'owner') return;
     setEditingVaultId(log.id);
     setVaultDate(log.date);
     setVaultAmount(log.amount.toString());
@@ -223,39 +226,44 @@ export default function CashExpenseDiary({
             কেশের আলমারি ও অফিস খরচ ডায়েরি (Cash Box & Operational Expenses)
           </h2>
           <p className="text-xs text-slate-500 mt-1">
-            মাসের খাতা-কলম, চা-নাস্তা বিল ও অন্যান্য ১২টি খরচের তালিকা এবং কেশে কত টাকা রাখা হলো তার পৃথক ডিজিটাল খাতা।
+            {role === 'owner' 
+              ? 'ম্যানেজার বা পরিচালক নিজে ড্রয়ার বা ক্যাশ বক্সে যে ক্যাশ টাকা সংরক্ষণের এন্ট্রি দিয়েছেন তারই খতিয়ান।' 
+              : 'মাসের খাতা-কলম, চা-নাস্তা বিল ও অন্যান্য ১২টি খরচের তালিকা এবং কেশে কত টাকা রাখা হলো তার পৃথক ডিজিটাল খাতা।'
+            }
           </p>
         </div>
       </div>
 
       {/* Diary Folder Switcher Tabs */}
-      <div className="flex gap-4 border-b border-slate-200">
-        <button
-          onClick={() => setActiveDiaryTab('expenses')}
-          className={`pb-3 text-sm font-bold flex items-center gap-2 cursor-pointer border-b-2 transition-all ${
-            activeDiaryTab === 'expenses' 
-              ? 'border-emerald-600 text-emerald-600' 
-              : 'border-transparent text-slate-500 hover:text-slate-800'
-          }`}
-        >
-          <Receipt className="h-4.5 w-4.5" />
-          ১২টি খাতের মাসিক খরচ খাতা (12 Monthly Expenses App)
-        </button>
-        <button
-          onClick={() => setActiveDiaryTab('vault')}
-          className={`pb-3 text-sm font-bold flex items-center gap-2 cursor-pointer border-b-2 transition-all ${
-            activeDiaryTab === 'vault' 
-              ? 'border-emerald-600 text-emerald-600' 
-              : 'border-transparent text-slate-500 hover:text-slate-800'
-          }`}
-        >
-          <Wallet className="h-4.5 w-4.5" />
-          কেশে কত টাকা রাখলাম (Cash Drawer Diary)
-        </button>
-      </div>
+      {role !== 'owner' && (
+        <div className="flex gap-4 border-b border-slate-200">
+          <button
+            onClick={() => setActiveDiaryTab('expenses')}
+            className={`pb-3 text-sm font-bold flex items-center gap-2 cursor-pointer border-b-2 transition-all ${
+              activeDiaryTab === 'expenses' 
+                ? 'border-emerald-600 text-emerald-600' 
+                : 'border-transparent text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            <Receipt className="h-4.5 w-4.5" />
+            ১২টি খাতের মাসিক খরচ খাতা (12 Monthly Expenses App)
+          </button>
+          <button
+            onClick={() => setActiveDiaryTab('vault')}
+            className={`pb-3 text-sm font-bold flex items-center gap-2 cursor-pointer border-b-2 transition-all ${
+              activeDiaryTab === 'vault' 
+                ? 'border-emerald-600 text-emerald-600' 
+                : 'border-transparent text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            <Wallet className="h-4.5 w-4.5" />
+            কেশে কত টাকা রাখলাম (Cash Drawer Diary)
+          </button>
+        </div>
+      )}
 
       {/* DIARY EXPENSES SECTION */}
-      {activeDiaryTab === 'expenses' && (
+      {activeDiaryTab === 'expenses' && role !== 'owner' && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Form to log 12 monthly costs */}
           <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-100 p-6 space-y-6 text-left">
@@ -311,7 +319,7 @@ export default function CashExpenseDiary({
 
               {/* Extra notes */}
               <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-600">খাতা নোট বা বিশেষ মন্তব্য (ঐচ্ছিক)</label>
+                <label className="text-xs font-bold text-slate-650 font-sans block">খাতা নোট বা বিশেষ মন্তব্য (ঐচ্ছিক)</label>
                 <textarea
                   value={expenseNote}
                   onChange={(e) => setExpenseNote(e.target.value)}
@@ -325,7 +333,7 @@ export default function CashExpenseDiary({
                 <div className="text-center sm:text-left leading-relaxed">
                   <span className="text-[11px] font-bold text-slate-500 block">মোট ১২টি খাতের হিসাব অনুযায়ী হিসেবকৃত খরচ:</span>
                   <strong className="text-xl font-bold font-sans text-emerald-700 grid grid-cols-1">
-                    {toBengaliDigits(computeLiveTotal())} ৳ <span className="text-[10px] text-slate-450 font-normal">({computeLiveTotal()} Taka Only)</span>
+                    {toBengaliDigits(computeLiveTotal())} ৳ <span className="text-[10px] text-slate-450 font-normal font-sans">({computeLiveTotal()} Taka Only)</span>
                   </strong>
                 </div>
 
@@ -348,51 +356,38 @@ export default function CashExpenseDiary({
             
             {monthlyExpenses.length > 0 ? (
               <div className="space-y-3 max-h-[600px] overflow-y-auto pr-1">
-                {monthlyExpenses.map((m) => (
-                  <div key={m.id} className="p-4 bg-white rounded-2xl border border-slate-100 shadow-xs hover:border-[#1d8df5] hover:shadow-md transition-all space-y-3 relative group">
-                    <div className="flex justify-between items-start">
-                      <div className="flex items-center gap-2">
-                        <div className="p-2 bg-rose-50 rounded-xl text-rose-600 shrink-0 border border-rose-100">
-                          <Receipt className="h-4.5 w-4.5" />
-                        </div>
-                        <div>
-                          <h4 className="text-xs font-black text-slate-800 uppercase tracking-wide">{m.month}</h4>
-                          <span className="text-[9px] text-slate-400 font-mono block">তারিখঃ {m.date}</span>
-                        </div>
-                      </div>
-                      <strong className="text-sm font-sans font-bold text-rose-600 text-right">
-                        -{m.totalAmount} ৳
-                      </strong>
-                    </div>
-
-                    {m.note && (
-                      <p className="text-[10px] text-slate-500 bg-slate-50 p-2 rounded-lg leading-relaxed italic line-clamp-2">
-                        "{m.note}"
+                {monthlyExpenses.map((exp) => (
+                  <div
+                    key={exp.id}
+                    className="p-4 bg-white hover:bg-slate-50 border border-slate-100 rounded-2xl shadow-sm flex justify-between items-center transition-all cursor-pointer"
+                    onClick={() => setSelectedExpenseDetail(exp)}
+                  >
+                    <div>
+                      <h4 className="text-xs font-bold text-slate-800">
+                        {exp.month} মাসের খরচ
+                      </h4>
+                      <p className="text-[10px] text-slate-400 mt-1 font-mono">
+                        তারিখ: {exp.date}
                       </p>
-                    )}
-
-                    <div className="flex justify-between items-center pt-2.5 border-t border-slate-100 text-xs">
-                      <button
-                        onClick={() => setSelectedExpenseDetail(m)}
-                        className="text-[11px] font-bold text-sky-600 hover:text-sky-800 flex items-center gap-1 cursor-pointer"
-                      >
-                        <Eye className="h-3.5 w-3.5" />
-                        বিবরণী দেখুন
-                      </button>
-
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-rose-600 font-sans">
+                        {toBengaliDigits(exp.totalAmount)} ৳
+                      </span>
                       {role === 'admin' && (
                         <button
-                          onClick={() => {
+                          onClick={(e) => {
+                            e.stopPropagation();
                             showConfirm(
-                              'খরচ ফাইল ডিলিট',
-                              `আপনি কি নিশ্চিত ${m.month} মাসের খরচ ডায়েরি স্থায়ীভাবে মুছতে চান?`,
-                              () => onDeleteMonthlyExpense(m.id)
+                              'খরচ খাতা ডিলিট',
+                              'আপনি কি নিশ্চিতভাবে এই মাসের সম্পূর্ণ খরচ খাতাটি ডিলিট করতে চান?',
+                              () => onDeleteMonthlyExpense(exp.id)
                             );
                           }}
-                          className="text-[10px] text-rose-500 hover:text-rose-700 hover:underline flex items-center gap-0.5 cursor-pointer font-sans"
+                          className="p-1 text-slate-400 hover:text-rose-600 transition-colors rounded-lg cursor-pointer"
+                          title="মুছুন"
                         >
-                          <Trash2 className="h-3 w-3" />
-                          মুছুন
+                          <Trash2 className="h-4 w-4" />
                         </button>
                       )}
                     </div>
@@ -400,101 +395,103 @@ export default function CashExpenseDiary({
                 ))}
               </div>
             ) : (
-              <div className="p-8 bg-slate-50 rounded-2xl text-center border border-dashed text-slate-400 text-xs">
-                এখনো কোনো মাসের খরচ ডায়েরি লেখা হয়নি।
+              <div className="p-8 bg-white border border-slate-100 rounded-2xl text-center text-slate-400 text-xs">
+                কোনো খরচ খাতা আর্কাইভ এন্ট্রি নেই।
               </div>
             )}
           </div>
         </div>
       )}
 
-      {/* CASH VAULT DIARY SECTION */}
+      {/* DIARY VAULT SECTION */}
       {activeDiaryTab === 'vault' && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Form to log cash in vault */}
-          <div className="bg-white rounded-2xl border border-slate-100 p-6 space-y-5 text-left h-fit">
-            <div>
-              <h3 className="text-base font-bold text-slate-850 flex items-center gap-2">
-                <PlusCircle className="h-5 w-5 text-emerald-600" />
-                কেশে কত টাকা রাখলাম (New Journal)
-              </h3>
-              <p className="text-[10px] text-slate-400 mt-0.5">অফিস আলমারি, ড্রয়ার বা ক্যাশ বক্সে টাকা রাখার লিখিত হিসাব ট্র্যাক করুন।</p>
-            </div>
-
-            <form onSubmit={handleVaultSubmit} className="space-y-4">
+          {/* Form to log cash in vault (Hided completely for owner/shareholder panel) */}
+          {role !== 'owner' && (
+            <div className="bg-white rounded-2xl border border-slate-100 p-6 space-y-5 text-left h-fit">
               <div>
-                <label className="block text-xs font-bold text-slate-650 mb-1">তারিখ নির্বাচন করুন *</label>
-                <input
-                  type="date"
-                  required
-                  value={vaultDate}
-                  onChange={(e) => setVaultDate(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-205 rounded-xl text-xs outline-none focus:border-emerald-500 font-mono focus:ring-1 focus:ring-emerald-100"
-                />
+                <h3 className="text-base font-bold text-slate-850 flex items-center gap-2">
+                  <PlusCircle className="h-5 w-5 text-emerald-600" />
+                  কেশে কত টাকা রাখলাম (New Journal)
+                </h3>
+                <p className="text-[10px] text-slate-400 mt-0.5">অফিস আলমারি, ড্রয়ার বা ক্যাশ বক্সে টাকা রাখার লিখিত হিসাব ট্র্যাক করুন।</p>
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-slate-650 mb-1">কেশে কত টাকা রাখলাম (পরিমাণ) *</label>
-                <div className="relative">
+              <form onSubmit={handleVaultSubmit} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-650 mb-1">তারিখ নির্বাচন করুন *</label>
                   <input
-                    type="number"
+                    type="date"
                     required
-                    placeholder="যেমনঃ ১৫০০০"
-                    value={vaultAmount}
-                    onChange={(e) => setVaultAmount(e.target.value)}
-                    className="w-full pl-8 pr-3 py-2 bg-slate-50 border border-slate-205 rounded-xl text-xs outline-none focus:border-emerald-500 font-mono focus:ring-1 focus:ring-emerald-100"
+                    value={vaultDate}
+                    onChange={(e) => setVaultDate(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-205 rounded-xl text-xs outline-none focus:border-emerald-500 font-mono focus:ring-1 focus:ring-emerald-100"
                   />
-                  <span className="absolute left-3 top-2 py-0.5 text-xs text-slate-400 font-bold">৳</span>
                 </div>
-              </div>
 
-              <div>
-                <label className="block text-xs font-bold text-slate-650 mb-1">কোথায় রাখলেন (ক্যাশবিল / ক্যাশ ট্রাস্ট) *</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="যেমনঃ মূল চালানি আলমারি বা অফিস ক্যাশ টেবিল ড্রয়ার"
-                  value={vaultLocation}
-                  onChange={(e) => setVaultLocation(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-205 rounded-xl text-xs outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-100"
-                />
-              </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-650 mb-1">কেশে কত টাকা রাখলাম (পরিমাণ) *</label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      required
+                      placeholder="যেমনঃ ১৫০০০"
+                      value={vaultAmount}
+                      onChange={(e) => setVaultAmount(e.target.value)}
+                      className="w-full pl-8 pr-3 py-2 bg-slate-50 border border-slate-205 rounded-xl text-xs outline-none focus:border-emerald-500 font-mono focus:ring-1 focus:ring-emerald-100"
+                    />
+                    <span className="absolute left-3 top-2 py-0.5 text-xs text-slate-400 font-bold">৳</span>
+                  </div>
+                </div>
 
-              <div>
-                <label className="block text-xs font-bold text-slate-650 mb-1">মন্তব্য বা আদেশের উৎস (ঐচ্ছিক)</label>
-                <input
-                  type="text"
-                  placeholder="যেমনঃ ব্যাংকের ৩য় কিস্তি থেকে আলমারি লকারে রাখা ক্যাশ টাকা..."
-                  value={vaultNote}
-                  onChange={(e) => setVaultNote(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-205 rounded-xl text-xs outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-100"
-                />
-              </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-650 mb-1">কোথায় রাখলেন (ক্যাশবিল / ক্যাশ ট্রাস্ট) *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="যেমনঃ মূল চালানি আলমারি বা অফিস ক্যাশ টেবিল ড্রয়ার"
+                    value={vaultLocation}
+                    onChange={(e) => setVaultLocation(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-205 rounded-xl text-xs outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-100"
+                  />
+                </div>
 
-              {role !== 'member' && (
-                <div className="flex gap-2">
-                  <button
-                    type="submit"
-                    className="flex-1 p-2.5 bg-[#1d8df5] hover:bg-blue-600 text-white rounded-xl text-xs font-bold shadow active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-1.5"
-                  >
-                    <Check className="h-4.5 w-4.5" /> {editingVaultId ? 'হালনাগাদ (সম্পাদনা) করুন' : 'হিসাব খাতা এন্ট্রি যোগ করুন'}
-                  </button>
-                  {editingVaultId && (
+                <div>
+                  <label className="block text-xs font-bold text-slate-650 mb-1">মন্তব্য বা আদেশের উৎস (ঐচ্ছিক)</label>
+                  <input
+                    type="text"
+                    placeholder="যেমনঃ ব্যাংকের ৩য় কিস্তি থেকে আলমারি লকারে রাখা ক্যাশ টাকা..."
+                    value={vaultNote}
+                    onChange={(e) => setVaultNote(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-205 rounded-xl text-xs outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-100"
+                  />
+                </div>
+
+                {role !== 'member' && (
+                  <div className="flex gap-2">
                     <button
-                      type="button"
-                      onClick={handleCancelEditVault}
-                      className="px-3.5 py-2.5 bg-slate-100 hover:bg-slate-205 text-slate-700 rounded-xl text-xs font-bold transition-all cursor-pointer"
+                      type="submit"
+                      className="flex-1 p-2.5 bg-[#1d8df5] hover:bg-blue-600 text-white rounded-xl text-xs font-bold shadow active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-1.5"
                     >
-                      বাতিল
+                      <Check className="h-4.5 w-4.5" /> {editingVaultId ? 'হালনাগাদ (সম্পাদনা) করুন' : 'হিসাব খাতা এন্ট্রি যোগ করুন'}
                     </button>
-                  )}
-                </div>
-              )}
-            </form>
-          </div>
+                    {editingVaultId && (
+                      <button
+                        type="button"
+                        onClick={handleCancelEditVault}
+                        className="px-3.5 py-2.5 bg-slate-100 hover:bg-slate-205 text-slate-700 rounded-xl text-xs font-bold transition-all cursor-pointer"
+                      >
+                        বাতিল
+                      </button>
+                    )}
+                  </div>
+                )}
+              </form>
+            </div>
+          )}
 
           {/* List and cumulative info card */}
-          <div className="lg:col-span-2 space-y-6 text-left">
+          <div className={`${role === 'owner' ? 'lg:col-span-3' : 'lg:col-span-2'} space-y-6 text-left`}>
             {/* Visual Safe Cabinet Box Card */}
             <div className="p-5 bg-slate-900 text-slate-100 rounded-2xl border border-slate-800 shadow-lg space-y-4 relative overflow-hidden">
               <div className="absolute right-0 bottom-0 opacity-10 pointer-events-none">
@@ -503,7 +500,7 @@ export default function CashExpenseDiary({
               <div className="flex justify-between items-center border-b border-slate-800 pb-3">
                 <div>
                   <h4 className="text-xs font-bold text-emerald-400 font-sans tracking-wide uppercase">কেশের মোট ফান্ড (Cash Safe Vault Status)</h4>
-                  <p className="text-[9px] text-slate-400 mt-0.5">সবগুলো কেশে রাখার হিস্ট্রি থেকে গণনা করা মোট পরিমাণ</p>
+                  <p className="text-[9px] text-slate-400 mt-0.5 font-sans">সবগুলো কেশে রাখার হিস্ট্রি থেকে গণনা করা মোট পরিমাণ</p>
                 </div>
                 <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></div>
               </div>
@@ -511,12 +508,12 @@ export default function CashExpenseDiary({
               <div className="py-2.5">
                 <span className="text-[10px] text-slate-400 block font-semibold">কেশে সংরক্ষিত বর্তমান মোট খতিয়ান স্থিতি:</span>
                 <strong className="text-2xl sm:text-3xl font-sans tracking-wide text-emerald-400 block mt-1">
-                  {toBengaliDigits(totalCachedInVault)} ৳ <span className="text-xs font-normal text-slate-400">({totalCachedInVault} Taka Total kept)</span>
+                  {toBengaliDigits(totalCachedInVault)} ৳ <span className="text-xs font-normal text-slate-400 font-sans">({totalCachedInVault} Taka Total kept)</span>
                 </strong>
               </div>
 
               <p className="text-[10px] text-slate-400 leading-relaxed font-sans mt-2">
-                এটি কোনো স্বয়ংক্রিয় হিসাব নয়, বরং ম্যানেজার বা পরিচালক নিজে কেশ ফান্ডে (লকার, ক্যাশ বাক্স ইত্যাদি) যে ক্যাশ টাকা সংরক্ষণের এন্ট্রি দিয়েছেন তারই লিখিত ইতিহাস।
+                এটি কোনো স্বয়ংক্রিয় হিসাব নয়, বরং ম্যানেজার বা পরিচালক নিজে ক্যাশ ড্রয়ারে বা লকারে যে ক্যাশ টাকা সংরক্ষণের হিসেব দিয়েছেন তার লিখিত খাতা।
               </p>
             </div>
 
@@ -533,7 +530,7 @@ export default function CashExpenseDiary({
                       <th className="p-3">পরিমাণ</th>
                       <th className="p-3">কোথায় রাখলেন (স্থান)</th>
                       <th className="p-3">মন্তব্য / বিবরণ</th>
-                      {role === 'admin' && <th className="p-3 text-center">কন্ট্রোল</th>}
+                      {role !== 'owner' && role === 'admin' && <th className="p-3 text-center">কন্ট্রোল</th>}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 font-sans text-slate-700">
@@ -546,7 +543,7 @@ export default function CashExpenseDiary({
                           <td className="p-3 text-slate-500 italic max-w-xs truncate" title={log.note || ''}>
                             {log.note || '—'}
                           </td>
-                          {role === 'admin' && (
+                          {role !== 'owner' && role === 'admin' && (
                             <td className="p-3 text-center">
                               <div className="flex items-center justify-center gap-2">
                                 <button
@@ -577,7 +574,7 @@ export default function CashExpenseDiary({
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={role === 'admin' ? 5 : 4} className="text-center p-8 text-slate-400">
+                        <td colSpan={role !== 'owner' && role === 'admin' ? 5 : 4} className="text-center p-8 text-slate-400">
                           কেশে টাকা রাখার ডায়েরিতে কোনো এন্ট্রি পাওয়া যায়নি।
                         </td>
                       </tr>
@@ -586,7 +583,7 @@ export default function CashExpenseDiary({
                 </table>
               </div>
 
-              {/* MOBILE CARD LIST VIEW (For App and Small Screens) */}
+              {/* MOBILE CARD LIST VIEW */}
               <div className="block md:hidden space-y-3">
                 {cashVaultLogs.length > 0 ? (
                   cashVaultLogs.map((log) => (
@@ -611,7 +608,7 @@ export default function CashExpenseDiary({
                         </p>
                       )}
 
-                      {role === 'admin' && (
+                      {role !== 'owner' && role === 'admin' && (
                         <div className="flex justify-end gap-2 pt-2.5 border-t border-slate-100">
                           <button
                             type="button"
@@ -694,7 +691,7 @@ export default function CashExpenseDiary({
                   <div key={idx} className="p-2.5 bg-slate-50/50 border border-slate-100 rounded-xl flex items-center justify-between">
                     <div className="flex items-center gap-2 truncate">
                       <item.icon className="h-3.5 w-3.5 text-slate-500 shrink-0" />
-                      <span className="text-[10.5px] font-bold text-slate-600 truncate">{item.label}</span>
+                      <span className="text-[10.5px] font-bold text-slate-650 truncate">{item.label}</span>
                     </div>
                     <strong className="text-[11.5px] font-mono text-slate-800 shrink-0 pl-1.5">
                       {item.val || 0} ৳

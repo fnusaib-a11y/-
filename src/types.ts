@@ -41,6 +41,8 @@ export type Loan = {
   profitAmount?: number;     // profit amount separately (e.g., 500)
   profitRepaid?: number;     // accumulated profit repaid separately
   advanceSavingsAmount?: number;
+  installmentType?: 'daily' | 'weekly' | 'monthly';
+  installmentCount?: number;
 };
 
 export type TrashLog = {
