@@ -19,6 +19,7 @@ interface TrashRestoreProps {
   notices: Notice[];
   onAddNotice: (notice: Omit<Notice, 'id'>) => Promise<void>;
   onDeleteNotice: (id: string) => Promise<void>;
+  onClearAllData?: () => Promise<void>;
 }
 
 export default function TrashRestore({ 
@@ -33,7 +34,8 @@ export default function TrashRestore({
   overdueMembersList = [],
   notices = [],
   onAddNotice,
-  onDeleteNotice
+  onDeleteNotice,
+  onClearAllData
 }: TrashRestoreProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
@@ -86,6 +88,18 @@ export default function TrashRestore({
       'রিসাইকেল বিন খালি করুন',
       'আপনি কি নিশ্চিত সম্পূর্ণ রিসাইকেল বিন স্থায়ীভাবে খালি করতে চান? এটি আর ফিরিয়ে আনা যাবে না।',
       () => onClearTrash()
+    );
+  };
+
+  const handleClearAllDataClick = () => {
+    showConfirm(
+      'সব ডাটা চিরতরে ডিলিট করুন!',
+      'আপনি কি নিশ্চিত যে আপনি অ্যাপের সকল সদস্য, কিস্তি খাতা, ঋণ খাতা, হিসাব-নিকাশ এবং ট্র্যাশ ডাটা চিরতরে ডিলিট করতে চান? এই প্রক্রিয়াটি সম্পন্ন হওয়ার পর ডাটা আর ফিরিয়ে আনা সম্ভব হবে না!',
+      () => {
+        if (onClearAllData) {
+          onClearAllData();
+        }
+      }
     );
   };
 
@@ -726,6 +740,29 @@ export default function TrashRestore({
               </button>
             </div>
           </div>
+
+          {/* Clear All Data / Factory Data Reset card */}
+          {onClearAllData && (
+            <div className="bg-white p-5 rounded-2xl shadow-sm border border-rose-100 dark:bg-slate-900 dark:border-rose-950/40 space-y-4">
+              <h3 className="text-sm font-bold text-rose-700 dark:text-rose-450 flex items-center gap-1.5 border-b border-rose-50 dark:border-rose-950/20 pb-2.5">
+                <ShieldAlert className="h-4.5 w-4.5 text-rose-600" />
+                ফ্যাক্টরি ডাটা রিসেট (Clear All Data)
+              </h3>
+              
+              <p className="text-xs text-slate-550 dark:text-slate-400 leading-relaxed font-sans">
+                ⚠️ <strong>সতর্কতা:</strong> এক ক্লিকে অ্যাপের সকল সদস্য, কিস্তি হিসাব, ঋণ হিসাব, খরচ ডায়েরি এবং খতিয়ানের সকল লেনদেন ডাটা চিরতরে মুছে ফেলুন। এই কাজটি করার পূর্বে অনুগ্রহ করে ব্যাকআপ ফাইল ডাউনলোড করে রাখুন।
+              </p>
+
+              <button
+                type="button"
+                onClick={handleClearAllDataClick}
+                className="w-full py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold shadow flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
+              >
+                <Trash2 className="h-4 w-4 text-white" />
+                সব ডাটা এক ক্লিকে ডিলিট করুন
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
