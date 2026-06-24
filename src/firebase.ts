@@ -1,6 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously } from 'firebase/auth';
-import { getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from 'firebase/firestore';
+import { getFirestore, initializeFirestore, persistentLocalCache, persistentSingleTabManager } from 'firebase/firestore';
 import firebaseConfig from './firebase-applet-config.json';
 
 const rawConfig: any = firebaseConfig;
@@ -18,7 +18,7 @@ let dbInstance;
 try {
   dbInstance = initializeFirestore(app, {
     localCache: persistentLocalCache({
-      tabManager: persistentMultipleTabManager(),
+      tabManager: persistentSingleTabManager({ forceOwnership: true }),
     }),
   });
 } catch (e) {
