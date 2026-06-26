@@ -1328,6 +1328,11 @@ export default function App() {
 
   // 4. Total outstanding principal loan due
   const totalLoansDueSum = totalLoansDisbursedPrincipal - totalLoansRecoveredPrincipal;
+  const totalLoansProfitDueSum = loans.reduce((sum, item) => {
+    const prof = item.profitAmount || 0;
+    return sum + (prof - (item.profitRepaid || 0));
+  }, 0);
+  const totalCombinedLoansDueSum = totalLoansDueSum + totalLoansProfitDueSum;
 
   // 5. Total Percentage Profits Vault (আলাদা মুনাফা ও লভ্যাংশ তহবিল - completely separate folder!)
   const totalSavingsPercentProfit = installments.reduce((sum, item) => sum + (item.profitAmount || 0), 0);
@@ -1732,9 +1737,9 @@ export default function App() {
                   </div>
 
                   <div className={`bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 text-left space-y-1 shadowing-sm border-b-4 border-b-amber-500`}>
-                    <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 block uppercase tracking-wider">বকেয়া ঋণ (আসল)</span>
-                    <strong className="text-xl font-black text-amber-600 dark:text-amber-400 font-mono tracking-tight">{totalLoansDueSum} ৳</strong>
-                    <div className="text-[9.5px] text-slate-400 font-sans">খেলাпи আসল আমানত</div>
+                    <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 block uppercase tracking-wider">বকেয়া ঋণ (আসল ও মুনাফা)</span>
+                    <strong className="text-xl font-black text-amber-600 dark:text-amber-400 font-mono tracking-tight">{totalCombinedLoansDueSum} ৳</strong>
+                    <div className="text-[9.5px] text-slate-400 font-sans">খেলাপি মোট দায়বদ্ধতা</div>
                   </div>
 
                   <div className={`bg-white dark:bg-slate-900 p-4 rounded-2xl border border-rose-100 dark:border-rose-950 text-left space-y-1 shadowing-sm border-b-4 border-b-rose-500 bg-rose-50/10`}>
