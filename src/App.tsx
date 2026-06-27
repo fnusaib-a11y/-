@@ -1311,80 +1311,80 @@ export default function App() {
   const activeMemberCount = members.filter(m => m.status === 'active').length;
 
   // 1. Total savings deposited = regular installments + extra savings (Excluding borrower savings!)
-  const totalSavingsSum = installments
+  const totalSavingsSum = Math.round(installments
     .filter(item => !item.isBorrowerSavings)
-    .reduce((sum, item) => sum + (Number(item.amount) || 0) + (Number(item.savingsAmount) || 0), 0);
+    .reduce((sum, item) => sum + (Number(item.amount) || 0) + (Number(item.savingsAmount) || 0), 0));
 
   // 1b. Total borrower savings deposited directly as borrower savings (Excluding regular member savings!)
-  const totalBorrowerSavingsSum = installments
+  const totalBorrowerSavingsSum = Math.round(installments
     .filter(item => item.isBorrowerSavings)
-    .reduce((sum, item) => sum + (Number(item.amount) || 0) + (Number(item.savingsAmount) || 0), 0);
+    .reduce((sum, item) => sum + (Number(item.amount) || 0) + (Number(item.savingsAmount) || 0), 0));
 
   // 2. Total loan principal disbursed (subtract core principal from money container, not principalAmount which includes interest profit)
-  const totalLoansDisbursedPrincipal = loans.reduce((sum, l) => {
+  const totalLoansDisbursedPrincipal = Math.round(loans.reduce((sum, l) => {
     const orig = Number(l.originalPrincipal) || (Number(l.principalAmount) - (Number(l.profitAmount) || 0)) || 0;
     return sum + orig;
-  }, 0);
+  }, 0));
 
   // 3. Total principal repaid (recovered principal)
-  const totalLoansRecoveredPrincipal = loans.reduce((sum, l) => sum + (Number(l.repaidAmount) || 0), 0);
+  const totalLoansRecoveredPrincipal = Math.round(loans.reduce((sum, l) => sum + (Number(l.repaidAmount) || 0), 0));
 
   // 4. Total outstanding principal loan due
   const totalLoansDueSum = totalLoansDisbursedPrincipal - totalLoansRecoveredPrincipal;
-  const totalLoansProfitDueSum = loans.reduce((sum, item) => {
+  const totalLoansProfitDueSum = Math.round(loans.reduce((sum, item) => {
     const prof = Number(item.profitAmount) || 0;
     const repaidProf = Number(item.profitRepaid) || 0;
     return sum + (prof - repaidProf);
-  }, 0);
-  const totalCombinedLoansDueSum = totalLoansDueSum + totalLoansProfitDueSum;
+  }, 0));
+  const totalCombinedLoansDueSum = Math.round(totalLoansDueSum + totalLoansProfitDueSum);
 
   // 5. Total Percentage Profits Vault (আলাদা মুনাফা ও লভ্যাংশ তহবিল - completely separate folder!)
-  const totalSavingsPercentProfit = installments.reduce((sum, item) => sum + (Number(item.profitAmount) || 0), 0);
-  const totalLoanPercentProfit = loans.reduce((sum, item) => sum + (Number(item.profitRepaid) || 0), 0);
-  const totalPercentageProfitSum = totalSavingsPercentProfit + totalLoanPercentProfit;
+  const totalSavingsPercentProfit = Math.round(installments.reduce((sum, item) => sum + (Number(item.profitAmount) || 0), 0));
+  const totalLoanPercentProfit = Math.round(loans.reduce((sum, item) => sum + (Number(item.profitRepaid) || 0), 0));
+  const totalPercentageProfitSum = Math.round(totalSavingsPercentProfit + totalLoanPercentProfit);
 
-  const customIncomeSum = ledger ? ledger.filter(l => l.type === 'income').reduce((sum, item) => sum + (Number(item.amount) || 0), 0) : 0;
-  const customExpenseSum = ledger ? ledger.filter(l => l.type === 'expense').reduce((sum, item) => sum + (Number(item.amount) || 0), 0) : 0;
-  const customSurplusSum = ledger ? ledger.filter(l => l.type === 'surplus').reduce((sum, item) => sum + (Number(item.amount) || 0), 0) : 0;
+  const customIncomeSum = Math.round(ledger ? ledger.filter(l => l.type === 'income').reduce((sum, item) => sum + (Number(item.amount) || 0), 0) : 0);
+  const customExpenseSum = Math.round(ledger ? ledger.filter(l => l.type === 'expense').reduce((sum, item) => sum + (Number(item.amount) || 0), 0) : 0);
+  const customSurplusSum = Math.round(ledger ? ledger.filter(l => l.type === 'surplus').reduce((sum, item) => sum + (Number(item.amount) || 0), 0) : 0);
 
-  const totalLoanPenalties = loanRepayments.reduce((sum, item) => sum + (Number(item.penaltyPaid) || 0), 0);
+  const totalLoanPenalties = Math.round(loanRepayments.reduce((sum, item) => sum + (Number(item.penaltyPaid) || 0), 0));
 
   // Net Cash Balance includes all collections but EXCLUDES savings deposits (as per user request: savings does not count to cash/main balance)
-  const totalCashBalanceOfCoop = totalLoansRecoveredPrincipal + totalLoanPercentProfit + totalLoanPenalties + customIncomeSum + customSurplusSum - totalLoansDisbursedPrincipal - customExpenseSum;
+  const totalCashBalanceOfCoop = Math.round(totalLoansRecoveredPrincipal + totalLoanPercentProfit + totalLoanPenalties + customIncomeSum + customSurplusSum - totalLoansDisbursedPrincipal - customExpenseSum);
 
   const todayDateStr = new Date().toISOString().split('T')[0];
-  const todaySavingsCollectionsSum = installments
+  const todaySavingsCollectionsSum = Math.round(installments
     .filter(i => i.date === todayDateStr)
-    .reduce((sum, item) => sum + (Number(item.amount) || 0) + (Number(item.savingsAmount) || 0), 0);
-  const todayLoanCollectionsSum = loanRepayments
+    .reduce((sum, item) => sum + (Number(item.amount) || 0) + (Number(item.savingsAmount) || 0), 0));
+  const todayLoanCollectionsSum = Math.round(loanRepayments
     .filter(r => r.date === todayDateStr)
-    .reduce((sum, item) => sum + (Number(item.repayAmount) || 0), 0);
-  const todayCollectionsSum = todaySavingsCollectionsSum + todayLoanCollectionsSum;
+    .reduce((sum, item) => sum + (Number(item.repayAmount) || 0), 0));
+  const todayCollectionsSum = Math.round(todaySavingsCollectionsSum + todayLoanCollectionsSum);
 
   // User-specific member dashboard logic
   const activeMember = members.find(m => m.id === currentMemberId);
   const memberPersonalInstallments = installments.filter(i => i.memberId === currentMemberId);
-  const memberPersonalSavingsTotal = memberPersonalInstallments
+  const memberPersonalSavingsTotal = Math.round(memberPersonalInstallments
     .filter(item => !item.isBorrowerSavings)
-    .reduce((sum, item) => sum + (Number(item.amount) || 0) + (Number(item.savingsAmount) || 0), 0);
+    .reduce((sum, item) => sum + (Number(item.amount) || 0) + (Number(item.savingsAmount) || 0), 0));
 
-  const memberPersonalBorrowerSavingsTotal = memberPersonalInstallments
+  const memberPersonalBorrowerSavingsTotal = Math.round(memberPersonalInstallments
     .filter(item => item.isBorrowerSavings)
-    .reduce((sum, item) => sum + (Number(item.amount) || 0) + (Number(item.savingsAmount) || 0), 0);
+    .reduce((sum, item) => sum + (Number(item.amount) || 0) + (Number(item.savingsAmount) || 0), 0));
   
   const memberPersonalLoans = loans.filter(l => l.memberId === currentMemberId);
-  const memberPersonalLoansTotal = memberPersonalLoans.reduce((sum, item) => sum + (Number(item.originalPrincipal) || (Number(item.principalAmount) - (Number(item.profitAmount) || 0)) || 0), 0);
-  const memberPersonalRepaidTotal = memberPersonalLoans.reduce((sum, item) => sum + (Number(item.repaidAmount) || 0), 0);
+  const memberPersonalLoansTotal = Math.round(memberPersonalLoans.reduce((sum, item) => sum + (Number(item.originalPrincipal) || (Number(item.principalAmount) - (Number(item.profitAmount) || 0)) || 0), 0));
+  const memberPersonalRepaidTotal = Math.round(memberPersonalLoans.reduce((sum, item) => sum + (Number(item.repaidAmount) || 0), 0));
   const memberPersonalDueTotal = memberPersonalLoansTotal - memberPersonalRepaidTotal;
   
-  const memberPersonalProfitDueTotal = memberPersonalLoans.reduce((sum, item) => {
+  const memberPersonalProfitDueTotal = Math.round(memberPersonalLoans.reduce((sum, item) => {
     const prof = Number(item.profitAmount) || 0;
     const repaidProf = Number(item.profitRepaid) || 0;
     return sum + (prof - repaidProf);
-  }, 0);
-  const memberPersonalCombinedDueTotal = memberPersonalDueTotal + memberPersonalProfitDueTotal;
+  }, 0));
+  const memberPersonalCombinedDueTotal = Math.round(memberPersonalDueTotal + memberPersonalProfitDueTotal);
 
-  const memberPersonalOriginalPrincipal = memberPersonalLoans.reduce((sum, item) => sum + (Number(item.originalPrincipal) || Math.round(Number(item.principalAmount) / 1.1) || 0), 0);
+  const memberPersonalOriginalPrincipal = Math.round(memberPersonalLoans.reduce((sum, item) => sum + (Number(item.originalPrincipal) || Math.round(Number(item.principalAmount) / 1.1) || 0), 0));
   const memberPersonalProfitTotal = memberPersonalLoansTotal - memberPersonalOriginalPrincipal;
 
   // Unread alerts count

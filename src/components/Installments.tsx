@@ -661,7 +661,7 @@ export default function Installments({ members, installments, onAddInstallment, 
                 </div>
                 <div className="text-xs text-slate-500">
                   মোট জমার পরিমাণ: <span className="font-bold text-emerald-600 font-mono">
-                    {filteredInstallments.reduce((sum, item) => sum + (Number(item.amount) || 0) + (Number(item.savingsAmount) || 0), 0)} ৳
+                    {Math.round(filteredInstallments.reduce((sum, item) => sum + (Number(item.amount) || 0) + (Number(item.savingsAmount) || 0), 0))} ৳
                   </span>
                 </div>
               </div>

@@ -88,23 +88,23 @@ export default function Reports({ members, installments, loans, role, ledger, lo
   const netIncome = totalRevenues - totalExpenses;
 
   // Grand Cooperative Cash Box calculations (কেশে অবশিষ্ট খতিয়ান হিসাব)
-  const totalSavingsSumOfCoop = installments
+  const totalSavingsSumOfCoop = Math.round(installments
     .filter(item => !item.isBorrowerSavings)
-    .reduce((sum, item) => sum + (Number(item.amount) || 0) + (Number(item.savingsAmount) || 0), 0);
-  const totalLoansDisbursedPrincipalOfCoop = loans.reduce((sum, l) => {
+    .reduce((sum, item) => sum + (Number(item.amount) || 0) + (Number(item.savingsAmount) || 0), 0));
+  const totalLoansDisbursedPrincipalOfCoop = Math.round(loans.reduce((sum, l) => {
     const orig = Number(l.originalPrincipal) || (Number(l.principalAmount) - (Number(l.profitAmount) || 0)) || 0;
     return sum + orig;
-  }, 0);
-  const totalLoansRecoveredPrincipalOfCoop = loans.reduce((sum, l) => sum + (Number(l.repaidAmount) || 0), 0);
-  const totalLoansDuePrincipalOfCoop = totalLoansDisbursedPrincipalOfCoop - totalLoansRecoveredPrincipalOfCoop;
+  }, 0));
+  const totalLoansRecoveredPrincipalOfCoop = Math.round(loans.reduce((sum, l) => sum + (Number(l.repaidAmount) || 0), 0));
+  const totalLoansDuePrincipalOfCoop = Math.round(totalLoansDisbursedPrincipalOfCoop - totalLoansRecoveredPrincipalOfCoop);
 
-  const totalSavingsPercentProfitOfCoop = installments.reduce((sum, item) => sum + (Number(item.profitAmount) || 0), 0);
-  const totalLoanPercentProfitOfCoop = loans.reduce((sum, item) => sum + (Number(item.profitRepaid) || 0), 0);
-  const totalPercentageProfitSumOfCoop = totalSavingsPercentProfitOfCoop + totalLoanPercentProfitOfCoop;
-  const totalLoanPenaltiesOfCoop = loanRepayments.reduce((sum, item) => sum + (Number(item.penaltyPaid) || 0), 0);
+  const totalSavingsPercentProfitOfCoop = Math.round(installments.reduce((sum, item) => sum + (Number(item.profitAmount) || 0), 0));
+  const totalLoanPercentProfitOfCoop = Math.round(loans.reduce((sum, item) => sum + (Number(item.profitRepaid) || 0), 0));
+  const totalPercentageProfitSumOfCoop = Math.round(totalSavingsPercentProfitOfCoop + totalLoanPercentProfitOfCoop);
+  const totalLoanPenaltiesOfCoop = Math.round(loanRepayments.reduce((sum, item) => sum + (Number(item.penaltyPaid) || 0), 0));
 
   // Net Cash Balance includes all collections but EXCLUDES savings deposits (as per user request: savings does not count to cash/main balance)
-  const totalCashBalanceOfCoop = totalLoansRecoveredPrincipalOfCoop + totalLoanPercentProfitOfCoop + totalLoanPenaltiesOfCoop + customIncome + customSurplus - totalLoansDisbursedPrincipalOfCoop - customExpense;
+  const totalCashBalanceOfCoop = Math.round(totalLoansRecoveredPrincipalOfCoop + totalLoanPercentProfitOfCoop + totalLoanPenaltiesOfCoop + customIncome + customSurplus - totalLoansDisbursedPrincipalOfCoop - customExpense);
 
   // PRINT Trigger helper
   const handlePrintReport = (elementId: string, title: string) => {
