@@ -1310,9 +1310,8 @@ export default function App() {
   const totalMemberCount = members.length;
   const activeMemberCount = members.filter(m => m.status === 'active').length;
 
-  // 1. Total savings deposited = regular installments + extra savings (Excluding borrower savings and interest percentages!)
+  // 1. Total savings deposited = regular installments + extra savings (Includes both regular and borrower savings!)
   const totalSavingsSum = installments
-    .filter(item => !item.isBorrowerSavings)
     .reduce((sum, item) => sum + (Number(item.amount) || 0) + (Number(item.savingsAmount) || 0), 0);
 
   // 1b. Total borrower savings deposited directly as borrower savings (Excluding regular member savings!)
@@ -1365,7 +1364,6 @@ export default function App() {
   const activeMember = members.find(m => m.id === currentMemberId);
   const memberPersonalInstallments = installments.filter(i => i.memberId === currentMemberId);
   const memberPersonalSavingsTotal = memberPersonalInstallments
-    .filter(item => !item.isBorrowerSavings)
     .reduce((sum, item) => sum + (Number(item.amount) || 0) + (Number(item.savingsAmount) || 0), 0);
 
   const memberPersonalBorrowerSavingsTotal = memberPersonalInstallments
