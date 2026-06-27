@@ -61,8 +61,8 @@ export default function Reports({ members, installments, loans, role, ledger, lo
   const dailyInstallments = installments.filter(i => i.date === targetDate);
   const dailyRepayments = (loanRepayments || []).filter(r => r.date === targetDate);
   
-  const dailySavingsTotalAmount = dailyInstallments.reduce((sum, item) => sum + item.amount + (item.savingsAmount || 0), 0);
-  const dailyLoansTotalAmount = dailyRepayments.reduce((sum, item) => sum + item.repayAmount, 0);
+  const dailySavingsTotalAmount = dailyInstallments.reduce((sum, item) => sum + (Number(item.amount) || 0) + (Number(item.savingsAmount) || 0), 0);
+  const dailyLoansTotalAmount = dailyRepayments.reduce((sum, item) => sum + (Number(item.repayAmount) || 0), 0);
   const dailyTotalAmount = dailySavingsTotalAmount + dailyLoansTotalAmount;
 
   // Installment Due warnings calculation
@@ -79,24 +79,27 @@ export default function Reports({ members, installments, loans, role, ledger, lo
   });
 
   // Profit/Loss Real ledger Calculations
-  const customIncome = ledger ? ledger.filter(l => l.type === 'income').reduce((sum, item) => sum + item.amount, 0) : 0;
-  const customExpense = ledger ? ledger.filter(l => l.type === 'expense').reduce((sum, item) => sum + item.amount, 0) : 0;
-  const customSurplus = ledger ? ledger.filter(l => l.type === 'surplus').reduce((sum, item) => sum + item.amount, 0) : 0;
+  const customIncome = ledger ? ledger.filter(l => l.type === 'income').reduce((sum, item) => sum + (Number(item.amount) || 0), 0) : 0;
+  const customExpense = ledger ? ledger.filter(l => l.type === 'expense').reduce((sum, item) => sum + (Number(item.amount) || 0), 0) : 0;
+  const customSurplus = ledger ? ledger.filter(l => l.type === 'surplus').reduce((sum, item) => sum + (Number(item.amount) || 0), 0) : 0;
 
   const totalRevenues = customIncome + customSurplus;
   const totalExpenses = customExpense;
   const netIncome = totalRevenues - totalExpenses;
 
   // Grand Cooperative Cash Box calculations (কেশে অবশিষ্ট খতিয়ান হিসাব)
-  const totalSavingsSumOfCoop = installments.reduce((sum, item) => sum + item.amount + (item.savingsAmount || 0), 0);
-  const totalLoansDisbursedPrincipalOfCoop = loans.reduce((sum, l) => sum + (l.originalPrincipal || (l.principalAmount - (l.profitAmount || 0))), 0);
-  const totalLoansRecoveredPrincipalOfCoop = loans.reduce((sum, l) => sum + l.repaidAmount, 0);
+  const totalSavingsSumOfCoop = installments.reduce((sum, item) => sum + (Number(item.amount) || 0) + (Number(item.savingsAmount) || 0), 0);
+  const totalLoansDisbursedPrincipalOfCoop = loans.reduce((sum, l) => {
+    const orig = Number(l.originalPrincipal) || (Number(l.principalAmount) - (Number(l.profitAmount) || 0)) || 0;
+    return sum + orig;
+  }, 0);
+  const totalLoansRecoveredPrincipalOfCoop = loans.reduce((sum, l) => sum + (Number(l.repaidAmount) || 0), 0);
   const totalLoansDuePrincipalOfCoop = totalLoansDisbursedPrincipalOfCoop - totalLoansRecoveredPrincipalOfCoop;
 
-  const totalSavingsPercentProfitOfCoop = installments.reduce((sum, item) => sum + (item.profitAmount || 0), 0);
-  const totalLoanPercentProfitOfCoop = loans.reduce((sum, item) => sum + (item.profitRepaid || 0), 0);
+  const totalSavingsPercentProfitOfCoop = installments.reduce((sum, item) => sum + (Number(item.profitAmount) || 0), 0);
+  const totalLoanPercentProfitOfCoop = loans.reduce((sum, item) => sum + (Number(item.profitRepaid) || 0), 0);
   const totalPercentageProfitSumOfCoop = totalSavingsPercentProfitOfCoop + totalLoanPercentProfitOfCoop;
-  const totalLoanPenaltiesOfCoop = loanRepayments.reduce((sum, item) => sum + (item.penaltyPaid || 0), 0);
+  const totalLoanPenaltiesOfCoop = loanRepayments.reduce((sum, item) => sum + (Number(item.penaltyPaid) || 0), 0);
 
   // Net Cash Balance includes all collections but EXCLUDES savings deposits (as per user request: savings does not count to cash/main balance)
   const totalCashBalanceOfCoop = totalLoansRecoveredPrincipalOfCoop + totalLoanPercentProfitOfCoop + totalLoanPenaltiesOfCoop + customIncome + customSurplus - totalLoansDisbursedPrincipalOfCoop - customExpense;

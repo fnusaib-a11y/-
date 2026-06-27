@@ -941,33 +941,36 @@ export default function Loans({ members, loans, onAddLoan, onRepayLoan, onDelete
               <div className="bg-slate-50 px-2.5 py-1 rounded border border-slate-200">
                 <span>মোট বিতরণকৃত লোন (আসল): </span>
                 <span className="font-bold text-slate-800 font-mono">
-                  {loans.reduce((sum, item) => sum + (item.originalPrincipal || (item.principalAmount - (item.profitAmount || 0))), 0)} ৳
+                  {loans.reduce((sum, item) => {
+                    const orig = Number(item.originalPrincipal) || (Number(item.principalAmount) - (Number(item.profitAmount) || 0)) || 0;
+                    return sum + orig;
+                  }, 0)} ৳
                 </span>
               </div>
               <div className="bg-purple-50 text-purple-700 px-2.5 py-1 rounded border border-purple-100/80">
                 <span>সম্ভাব্য মোট লোন মুনাফা: </span>
                 <span className="font-extrabold font-mono text-purple-950">
-                  {loans.reduce((sum, item) => sum + (item.profitAmount || 0), 0)} ৳
+                  {loans.reduce((sum, item) => sum + (Number(item.profitAmount) || 0), 0)} ৳
                 </span>
               </div>
               <div className="bg-emerald-50 text-emerald-800 px-2.5 py-1 rounded border border-emerald-100">
                 <span>মোট আদায় লোন (আসল): </span>
                 <span className="font-bold text-emerald-600 font-mono">
-                  {loans.reduce((sum, item) => sum + item.repaidAmount, 0)} ৳
+                  {loans.reduce((sum, item) => sum + (Number(item.repaidAmount) || 0), 0)} ৳
                 </span>
               </div>
               <div className="bg-purple-50 text-purple-700 px-2.5 py-1 rounded border border-purple-150">
                 <span>মোট সংগৃহীত মুনাফা: </span>
                 <span className="font-extrabold font-mono text-purple-900">
-                  {loans.reduce((sum, item) => sum + (item.profitRepaid || 0), 0)} ৳
+                  {loans.reduce((sum, item) => sum + (Number(item.profitRepaid) || 0), 0)} ৳
                 </span>
               </div>
               <div className="bg-rose-50 text-rose-700 px-2.5 py-1 rounded border border-rose-100">
                 <span>বকেয়া লোন (আসল): </span>
                 <span className="font-bold font-mono text-rose-600">
                   {loans.reduce((sum, item) => {
-                    const orig = item.originalPrincipal || (item.principalAmount - (item.profitAmount || 0));
-                    return sum + (orig - item.repaidAmount);
+                    const orig = Number(item.originalPrincipal) || (Number(item.principalAmount) - (Number(item.profitAmount) || 0)) || 0;
+                    return sum + (orig - (Number(item.repaidAmount) || 0));
                   }, 0)} ৳
                 </span>
               </div>
@@ -975,8 +978,8 @@ export default function Loans({ members, loans, onAddLoan, onRepayLoan, onDelete
                 <span>বকেয়া লোন মুনাফা: </span>
                 <span className="font-bold font-mono text-rose-600">
                   {loans.reduce((sum, item) => {
-                    const prof = item.profitAmount || 0;
-                    return sum + (prof - (item.profitRepaid || 0));
+                    const prof = Number(item.profitAmount) || 0;
+                    return sum + (prof - (Number(item.profitRepaid) || 0));
                   }, 0)} ৳
                 </span>
               </div>

@@ -42,19 +42,19 @@ export default function Installments({ members, installments, onAddInstallment, 
   const getMemberTotalSavings = (mId: string) => {
     return installments
       .filter(i => i.memberId === mId && !i.isBorrowerSavings)
-      .reduce((sum, item) => sum + item.amount + (item.savingsAmount || 0), 0);
+      .reduce((sum, item) => sum + (Number(item.amount) || 0) + (Number(item.savingsAmount) || 0), 0);
   };
 
   const getMemberBorrowerSavings = (mId: string) => {
     return installments
       .filter(i => i.memberId === mId && i.isBorrowerSavings)
-      .reduce((sum, item) => sum + item.amount + (item.savingsAmount || 0), 0);
+      .reduce((sum, item) => sum + (Number(item.amount) || 0) + (Number(item.savingsAmount) || 0), 0);
   };
 
   const getMemberTotalProfit = (mId: string) => {
     return installments
       .filter(i => i.memberId === mId)
-      .reduce((sum, item) => sum + (item.profitAmount || 0), 0);
+      .reduce((sum, item) => sum + (Number(item.profitAmount) || 0), 0);
   };
 
   const handleQuickAddSavings = (mId: string) => {
@@ -148,12 +148,12 @@ export default function Installments({ members, installments, onAddInstallment, 
       memberName: currentMember.name,
       amount: instAmt,
       savingsAmount: savAmt,
-      savingsPercent: directProfit > 0 ? undefined : pct,
       profitAmount: computedSavingsProfit,
       date,
       type: instType,
       isBorrowerSavings: isBorrowerSavings,
-      fixedProfitAmount: directProfit > 0 ? directProfit : undefined
+      ...(directProfit <= 0 && pct > 0 ? { savingsPercent: pct } : {}),
+      ...(directProfit > 0 ? { fixedProfitAmount: directProfit } : {})
     };
 
     onAddInstallment(newInst);
@@ -659,7 +659,7 @@ export default function Installments({ members, installments, onAddInstallment, 
                 </div>
                 <div className="text-xs text-slate-500">
                   মোট জমার পরিমাণ: <span className="font-bold text-emerald-600 font-mono">
-                    {filteredInstallments.reduce((sum, item) => sum + item.amount, 0)} ৳
+                    {filteredInstallments.reduce((sum, item) => sum + (Number(item.amount) || 0) + (Number(item.savingsAmount) || 0), 0)} ৳
                   </span>
                 </div>
               </div>

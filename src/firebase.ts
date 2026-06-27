@@ -20,6 +20,7 @@ try {
     localCache: persistentLocalCache({
       tabManager: persistentSingleTabManager({ forceOwnership: true }),
     }),
+    ignoreUndefinedProperties: true,
   });
 } catch (e) {
   console.warn('[Firebase Init] Persistent local cache initialization failed, falling back to default:', e);

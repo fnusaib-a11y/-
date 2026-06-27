@@ -1313,37 +1313,41 @@ export default function App() {
   // 1. Total savings deposited = regular installments + extra savings (Excluding borrower savings and interest percentages!)
   const totalSavingsSum = installments
     .filter(item => !item.isBorrowerSavings)
-    .reduce((sum, item) => sum + item.amount + (item.savingsAmount || 0), 0);
+    .reduce((sum, item) => sum + (Number(item.amount) || 0) + (Number(item.savingsAmount) || 0), 0);
 
   // 1b. Total borrower savings deposited directly as borrower savings (Excluding regular member savings!)
   const totalBorrowerSavingsSum = installments
     .filter(item => item.isBorrowerSavings)
-    .reduce((sum, item) => sum + item.amount + (item.savingsAmount || 0), 0);
+    .reduce((sum, item) => sum + (Number(item.amount) || 0) + (Number(item.savingsAmount) || 0), 0);
 
   // 2. Total loan principal disbursed (subtract core principal from money container, not principalAmount which includes interest profit)
-  const totalLoansDisbursedPrincipal = loans.reduce((sum, l) => sum + (l.originalPrincipal || (l.principalAmount - (l.profitAmount || 0))), 0);
+  const totalLoansDisbursedPrincipal = loans.reduce((sum, l) => {
+    const orig = Number(l.originalPrincipal) || (Number(l.principalAmount) - (Number(l.profitAmount) || 0)) || 0;
+    return sum + orig;
+  }, 0);
 
   // 3. Total principal repaid (recovered principal)
-  const totalLoansRecoveredPrincipal = loans.reduce((sum, l) => sum + l.repaidAmount, 0);
+  const totalLoansRecoveredPrincipal = loans.reduce((sum, l) => sum + (Number(l.repaidAmount) || 0), 0);
 
   // 4. Total outstanding principal loan due
   const totalLoansDueSum = totalLoansDisbursedPrincipal - totalLoansRecoveredPrincipal;
   const totalLoansProfitDueSum = loans.reduce((sum, item) => {
-    const prof = item.profitAmount || 0;
-    return sum + (prof - (item.profitRepaid || 0));
+    const prof = Number(item.profitAmount) || 0;
+    const repaidProf = Number(item.profitRepaid) || 0;
+    return sum + (prof - repaidProf);
   }, 0);
   const totalCombinedLoansDueSum = totalLoansDueSum + totalLoansProfitDueSum;
 
   // 5. Total Percentage Profits Vault (আলাদা মুনাফা ও লভ্যাংশ তহবিল - completely separate folder!)
-  const totalSavingsPercentProfit = installments.reduce((sum, item) => sum + (item.profitAmount || 0), 0);
-  const totalLoanPercentProfit = loans.reduce((sum, item) => sum + (item.profitRepaid || 0), 0);
+  const totalSavingsPercentProfit = installments.reduce((sum, item) => sum + (Number(item.profitAmount) || 0), 0);
+  const totalLoanPercentProfit = loans.reduce((sum, item) => sum + (Number(item.profitRepaid) || 0), 0);
   const totalPercentageProfitSum = totalSavingsPercentProfit + totalLoanPercentProfit;
 
-  const customIncomeSum = ledger ? ledger.filter(l => l.type === 'income').reduce((sum, item) => sum + item.amount, 0) : 0;
-  const customExpenseSum = ledger ? ledger.filter(l => l.type === 'expense').reduce((sum, item) => sum + item.amount, 0) : 0;
-  const customSurplusSum = ledger ? ledger.filter(l => l.type === 'surplus').reduce((sum, item) => sum + item.amount, 0) : 0;
+  const customIncomeSum = ledger ? ledger.filter(l => l.type === 'income').reduce((sum, item) => sum + (Number(item.amount) || 0), 0) : 0;
+  const customExpenseSum = ledger ? ledger.filter(l => l.type === 'expense').reduce((sum, item) => sum + (Number(item.amount) || 0), 0) : 0;
+  const customSurplusSum = ledger ? ledger.filter(l => l.type === 'surplus').reduce((sum, item) => sum + (Number(item.amount) || 0), 0) : 0;
 
-  const totalLoanPenalties = loanRepayments.reduce((sum, item) => sum + (item.penaltyPaid || 0), 0);
+  const totalLoanPenalties = loanRepayments.reduce((sum, item) => sum + (Number(item.penaltyPaid) || 0), 0);
 
   // Net Cash Balance includes all collections but EXCLUDES savings deposits (as per user request: savings does not count to cash/main balance)
   const totalCashBalanceOfCoop = totalLoansRecoveredPrincipal + totalLoanPercentProfit + totalLoanPenalties + customIncomeSum + customSurplusSum - totalLoansDisbursedPrincipal - customExpenseSum;
@@ -1351,10 +1355,10 @@ export default function App() {
   const todayDateStr = new Date().toISOString().split('T')[0];
   const todaySavingsCollectionsSum = installments
     .filter(i => i.date === todayDateStr)
-    .reduce((sum, item) => sum + item.amount + (item.savingsAmount || 0), 0);
+    .reduce((sum, item) => sum + (Number(item.amount) || 0) + (Number(item.savingsAmount) || 0), 0);
   const todayLoanCollectionsSum = loanRepayments
     .filter(r => r.date === todayDateStr)
-    .reduce((sum, item) => sum + item.repayAmount, 0);
+    .reduce((sum, item) => sum + (Number(item.repayAmount) || 0), 0);
   const todayCollectionsSum = todaySavingsCollectionsSum + todayLoanCollectionsSum;
 
   // User-specific member dashboard logic
@@ -1362,17 +1366,25 @@ export default function App() {
   const memberPersonalInstallments = installments.filter(i => i.memberId === currentMemberId);
   const memberPersonalSavingsTotal = memberPersonalInstallments
     .filter(item => !item.isBorrowerSavings)
-    .reduce((sum, item) => sum + item.amount + (item.savingsAmount || 0), 0);
+    .reduce((sum, item) => sum + (Number(item.amount) || 0) + (Number(item.savingsAmount) || 0), 0);
 
   const memberPersonalBorrowerSavingsTotal = memberPersonalInstallments
     .filter(item => item.isBorrowerSavings)
-    .reduce((sum, item) => sum + item.amount + (item.savingsAmount || 0), 0);
+    .reduce((sum, item) => sum + (Number(item.amount) || 0) + (Number(item.savingsAmount) || 0), 0);
   
   const memberPersonalLoans = loans.filter(l => l.memberId === currentMemberId);
-  const memberPersonalLoansTotal = memberPersonalLoans.reduce((sum, item) => sum + (item.originalPrincipal || (item.principalAmount - (item.profitAmount || 0))), 0);
-  const memberPersonalRepaidTotal = memberPersonalLoans.reduce((sum, item) => sum + item.repaidAmount, 0);
+  const memberPersonalLoansTotal = memberPersonalLoans.reduce((sum, item) => sum + (Number(item.originalPrincipal) || (Number(item.principalAmount) - (Number(item.profitAmount) || 0)) || 0), 0);
+  const memberPersonalRepaidTotal = memberPersonalLoans.reduce((sum, item) => sum + (Number(item.repaidAmount) || 0), 0);
   const memberPersonalDueTotal = memberPersonalLoansTotal - memberPersonalRepaidTotal;
-  const memberPersonalOriginalPrincipal = memberPersonalLoans.reduce((sum, item) => sum + (item.originalPrincipal || Math.round(item.principalAmount / 1.1)), 0);
+  
+  const memberPersonalProfitDueTotal = memberPersonalLoans.reduce((sum, item) => {
+    const prof = Number(item.profitAmount) || 0;
+    const repaidProf = Number(item.profitRepaid) || 0;
+    return sum + (prof - repaidProf);
+  }, 0);
+  const memberPersonalCombinedDueTotal = memberPersonalDueTotal + memberPersonalProfitDueTotal;
+
+  const memberPersonalOriginalPrincipal = memberPersonalLoans.reduce((sum, item) => sum + (Number(item.originalPrincipal) || Math.round(Number(item.principalAmount) / 1.1) || 0), 0);
   const memberPersonalProfitTotal = memberPersonalLoansTotal - memberPersonalOriginalPrincipal;
 
   // Unread alerts count
@@ -1844,13 +1856,13 @@ export default function App() {
 
                   {/* Item 4: Personal loans due balance & repaid progress */}
                   <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-amber-100 dark:border-slate-850 text-left space-y-2 bg-amber-50/10 shadow-md border-b-4 border-b-amber-500 hover:shadow-lg transition-all">
-                    <span className="text-[10px] font-bold text-amber-600 uppercase tracking-wider block">অবশিষ্ট ঋণের দায়বদ্ধতা/বকেয়া</span>
+                    <span className="text-[10px] font-bold text-amber-600 uppercase tracking-wider block">অবশিষ্ট ঋণের দায়বদ্ধতা/বকেয়া (আসল ও মুনাফা)</span>
                     <div className="flex items-baseline justify-between border-b border-slate-100/60 dark:border-slate-800/60 pb-1.5">
-                      <strong className="text-2xl font-black text-rose-600 font-mono">{memberPersonalDueTotal} ৳</strong>
-                      <span className="text-[10px] font-bold text-slate-400">পরিশোধিত: {memberPersonalRepaidTotal} ৳</span>
+                      <strong className="text-2xl font-black text-rose-600 font-mono">{memberPersonalCombinedDueTotal} ৳</strong>
+                      <span className="text-[10px] font-bold text-slate-400">পরিশোধিত আসল: {memberPersonalRepaidTotal} ৳</span>
                     </div>
                     <div className="text-[10px] text-slate-500 font-sans leading-relaxed space-y-2">
-                      {memberPersonalDueTotal > 0 ? (
+                      {memberPersonalCombinedDueTotal > 0 ? (
                         <span className="text-amber-600 dark:text-amber-400 font-medium">
                           ⚠️ আপনার বকেয়া লোন ঋণ কিস্তিতে পরিশোধ করুন। বিস্তারিত দেখতে নিচের <strong>"নিজের লোন"</strong> বাটনে ক্লিক করুন।
                         </span>
