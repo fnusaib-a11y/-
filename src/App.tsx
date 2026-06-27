@@ -1310,8 +1310,9 @@ export default function App() {
   const totalMemberCount = members.length;
   const activeMemberCount = members.filter(m => m.status === 'active').length;
 
-  // 1. Total savings deposited = regular installments + extra savings (Includes both regular and borrower savings!)
+  // 1. Total savings deposited = regular installments + extra savings (Excluding borrower savings!)
   const totalSavingsSum = installments
+    .filter(item => !item.isBorrowerSavings)
     .reduce((sum, item) => sum + (Number(item.amount) || 0) + (Number(item.savingsAmount) || 0), 0);
 
   // 1b. Total borrower savings deposited directly as borrower savings (Excluding regular member savings!)
@@ -1364,6 +1365,7 @@ export default function App() {
   const activeMember = members.find(m => m.id === currentMemberId);
   const memberPersonalInstallments = installments.filter(i => i.memberId === currentMemberId);
   const memberPersonalSavingsTotal = memberPersonalInstallments
+    .filter(item => !item.isBorrowerSavings)
     .reduce((sum, item) => sum + (Number(item.amount) || 0) + (Number(item.savingsAmount) || 0), 0);
 
   const memberPersonalBorrowerSavingsTotal = memberPersonalInstallments
@@ -1729,7 +1731,7 @@ export default function App() {
                   </div>
 
                   <div className={`bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 text-left space-y-1 shadowing-sm border-b-4 border-b-blue-500`}>
-                    <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 block uppercase tracking-wider">মোট সঞ্চয়</span>
+                    <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 block uppercase tracking-wider">শেয়ার হোল্ডার সঞ্চয়</span>
                     <strong className="text-xl font-black text-blue-600 dark:text-blue-400 font-mono tracking-tight">{totalSavingsSum} ৳</strong>
                     <div className="text-[9.5px] text-slate-400 font-sans">সমিতির আমানত</div>
                   </div>

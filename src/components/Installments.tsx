@@ -94,14 +94,16 @@ export default function Installments({ members, installments, onAddInstallment, 
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [instType, setInstType] = useState<'daily' | 'weekly' | 'monthly'>('weekly');
 
-  // Clean selections
-  const activeMembers = members.filter(m => m?.status === 'active');
+  // Clean selections (Only those who give savings, excluding pure borrowers)
+  const activeMembers = members.filter(m => m?.status === 'active' && (m?.memberCategory || 'borrower') !== 'borrower');
   const selectedMember = members.find(m => m?.id === memberId);
 
   const filteredMembersForSavings = members.filter(m => {
-    return (m.name || '').toLowerCase().includes(searchTerm.toLowerCase()) || 
-           (m.id || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-           (m.phone || '').toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesCategory = (m.memberCategory || 'borrower') !== 'borrower';
+    const matchesSearch = (m.name || '').toLowerCase().includes(searchTerm.toLowerCase()) || 
+                          (m.id || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          (m.phone || '').toLowerCase().includes(searchTerm.toLowerCase());
+    return matchesCategory && matchesSearch;
   });
 
   // Auto-fill amount based on member's preset target

@@ -88,7 +88,9 @@ export default function Reports({ members, installments, loans, role, ledger, lo
   const netIncome = totalRevenues - totalExpenses;
 
   // Grand Cooperative Cash Box calculations (কেশে অবশিষ্ট খতিয়ান হিসাব)
-  const totalSavingsSumOfCoop = installments.reduce((sum, item) => sum + (Number(item.amount) || 0) + (Number(item.savingsAmount) || 0), 0);
+  const totalSavingsSumOfCoop = installments
+    .filter(item => !item.isBorrowerSavings)
+    .reduce((sum, item) => sum + (Number(item.amount) || 0) + (Number(item.savingsAmount) || 0), 0);
   const totalLoansDisbursedPrincipalOfCoop = loans.reduce((sum, l) => {
     const orig = Number(l.originalPrincipal) || (Number(l.principalAmount) - (Number(l.profitAmount) || 0)) || 0;
     return sum + orig;
