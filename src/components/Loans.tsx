@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Member, Loan } from '../types';
-import { Landmark, Search, PlusCircle, Printer, X, Receipt, HandCoins, TrendingUp, Calendar, AlertTriangle, ArrowLeft, User, DollarSign, Percent, Hash, Check, Gavel, Banknote, Trash2, ShieldAlert, AlertCircle, Wallet } from 'lucide-react';
+import { Landmark, Search, PlusCircle, Printer, X, Receipt, HandCoins, TrendingUp, Calendar, AlertTriangle, ArrowLeft, User, DollarSign, Percent, Hash, Check, Gavel, Banknote, Trash2, ShieldAlert, AlertCircle, Wallet, FileEdit } from 'lucide-react';
 
 // Helper to convert standard numbers to Bengali digits
 const toBengaliDigits = (num: number | string) => {
@@ -28,9 +28,34 @@ interface LoansProps {
 
 export default function Loans({ members, loans, onAddLoan, onRepayLoan, onDeleteLoan, role, currentMemberId }: LoansProps) {
   const [isAdding, setIsAdding] = useState(false);
+  const [editingLoanId, setEditingLoanId] = useState<string | null>(null);
   const [isRepaying, setIsRepaying] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedRepayLoan, setSelectedRepayLoan] = useState<Loan | null>(null);
+
+  const handleEditLoanClick = (loan: Loan) => {
+    setEditingLoanId(loan.id);
+    setMemberId(loan.memberId);
+    setPrincipalAmount((loan.originalPrincipal || Math.round(loan.principalAmount / (1 + (loan.interestPercent || 10) / 100))).toString());
+    setInterestPercent((loan.interestPercent || 10).toString());
+    setInstallmentCount((loan.installmentCount || 12).toString());
+    setInstallmentType(loan.installmentType === 'weekly' ? 'Weekly' : loan.installmentType === 'monthly' ? 'Monthly' : loan.installmentType === 'daily' ? 'Daily' : 'Weekly');
+    setTakenDate(loan.takenDate);
+    setAdvanceSavingsAmount((loan.advanceSavingsAmount || 0).toString());
+    setIsAdding(true);
+  };
+
+  const handleCancelLoanAdding = () => {
+    setIsAdding(false);
+    setEditingLoanId(null);
+    setMemberId('');
+    setPrincipalAmount('');
+    setInterestPercent('10');
+    setInstallmentCount('12');
+    setInstallmentType('Weekly');
+    setTakenDate(new Date().toISOString().split('T')[0]);
+    setAdvanceSavingsAmount('');
+  };
 
   // Custom dialogue state for sandbox / iframe safety
   const [dialog, setDialog] = useState<{
@@ -99,6 +124,7 @@ export default function Loans({ members, loans, onAddLoan, onRepayLoan, onDelete
 
   const handleIssueSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    const existingLoan = editingLoanId ? loans.find(l => l.id === editingLoanId) : null;
     const corePrincipal = parseFloat(principalAmount) || 0;
     const coreAdvanceSavings = parseFloat(advanceSavingsAmount) || 0;
     if (!memberId || corePrincipal <= 0 || computedInstallmentAmount <= 0 || !computedDueDate) {
@@ -109,11 +135,13 @@ export default function Loans({ members, loans, onAddLoan, onRepayLoan, onDelete
     const borrower = members.find(m => m?.id === memberId);
     if (!borrower) return;
 
-    // Check if member already has active loan
-    const hasActiveLoan = loans.some(l => l.memberId === memberId && l.status === 'active');
-    if (hasActiveLoan) {
-      showAlert('ঋণ ওভারল্যাপ ত্রুটি!', `দুঃখিত, "${borrower.name}" এর একটি ঋণ ইতিমধ্যে চলমান রয়েছে! পূর্বের ঋণ পরিশোধ হলে নতুন ঋণ নেওয়া যাবে।`);
-      return;
+    // Check if member already has active loan (only if not editing)
+    if (!editingLoanId) {
+      const hasActiveLoan = loans.some(l => l.memberId === memberId && l.status === 'active');
+      if (hasActiveLoan) {
+        showAlert('ঋণ ওভারল্যাপ ত্রুটি!', `দুঃখিত, "${borrower.name}" এর একটি ঋণ ইতিমধ্যে চলমান রয়েছে! পূর্বের ঋণ পরিশোধ হলে নতুন ঋণ নেওয়া যাবে।`);
+        return;
+      }
     }
 
     const coreRate = parseFloat(interestPercent) || 10;
@@ -122,25 +150,27 @@ export default function Loans({ members, loans, onAddLoan, onRepayLoan, onDelete
     // Set principal amount of Loan to total payable amount (original principal + interest rate profit)
     // to match original code structure where repaidAmount reconciles from 0 to total original loan size.
     const newLoan: Loan = {
-      id: `LOAN-${Math.floor(1000 + Math.random() * 9000)}`,
+      id: editingLoanId || `LOAN-${Math.floor(1000 + Math.random() * 9000)}`,
       memberId,
       memberName: borrower.name,
       principalAmount: computedTotalPayable,
       takenDate,
       dueDate: computedDueDate,
-      repaidAmount: 0,
+      repaidAmount: existingLoan ? existingLoan.repaidAmount : 0,
       installmentAmount: computedInstallmentAmount,
-      status: 'active',
+      status: existingLoan ? existingLoan.status : 'active',
       interestPercent: coreRate,
       originalPrincipal: corePrincipal,
       profitAmount: computedProfit,
       advanceSavingsAmount: coreAdvanceSavings,
       installmentType: installmentType.toLowerCase() as 'daily' | 'weekly' | 'monthly',
-      installmentCount: parseInt(installmentCount) || 12
+      installmentCount: parseInt(installmentCount) || 12,
+      profitRepaid: existingLoan ? existingLoan.profitRepaid : 0,
     };
 
     onAddLoan(newLoan);
     setIsAdding(false);
+    setEditingLoanId(null);
 
     // Reset
     setMemberId('');
@@ -410,14 +440,14 @@ export default function Loans({ members, loans, onAddLoan, onRepayLoan, onDelete
           <div className="bg-[#1d8df5] px-4 py-4.5 text-white flex items-center relative shadow-md">
             <button 
               type="button" 
-              onClick={() => setIsAdding(false)} 
+              onClick={handleCancelLoanAdding} 
               className="absolute left-4 p-1 hover:bg-white/10 rounded-full transition-colors cursor-pointer"
               title="পিছনে যান"
             >
               <ArrowLeft className="h-5 w-5" />
             </button>
             <h3 className="w-full text-center text-base font-bold tracking-wide font-sans">
-              ঋণ প্রদান
+              {editingLoanId ? 'ঋণ সম্পাদন (সংশোধন)' : 'ঋণ প্রদান'}
             </h3>
           </div>
 
@@ -564,7 +594,7 @@ export default function Loans({ members, loans, onAddLoan, onRepayLoan, onDelete
             <div className="flex justify-end gap-2.5 pt-2">
               <button
                 type="button"
-                onClick={() => setIsAdding(false)}
+                onClick={handleCancelLoanAdding}
                 className="px-4 py-2.5 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl text-xs font-semibold cursor-pointer transition-colors"
               >
                 বাতিল
@@ -573,7 +603,7 @@ export default function Loans({ members, loans, onAddLoan, onRepayLoan, onDelete
                 type="submit"
                 className="px-5 py-2.5 bg-[#1d8df5] hover:bg-[#157ad7] text-white rounded-xl text-xs font-bold shadow-sm cursor-pointer transition-all active:scale-[0.98]"
               >
-                ঋণ অনুমোদন করুন
+                {editingLoanId ? 'হালনাগাদ নিশ্চিত করুন' : 'ঋণ অনুমোদন করুন'}
               </button>
             </div>
           </form>
@@ -1099,6 +1129,15 @@ export default function Loans({ members, loans, onAddLoan, onRepayLoan, onDelete
                               </button>
                             ) : (
                               <span className="text-slate-400 text-[10px] font-bold">আদায় সম্পন্ন</span>
+                            )}
+                            {role === 'admin' && (
+                              <button
+                                onClick={() => handleEditLoanClick(l)}
+                                className="p-1 text-slate-405 hover:text-[#1d8df5] border border-slate-200 hover:border-blue-300 hover:bg-blue-50 rounded cursor-pointer transition-all flex items-center justify-center font-sans font-bold"
+                                title="এডিট করুন"
+                              >
+                                <FileEdit className="h-3 w-3" />
+                              </button>
                             )}
                             {role === 'admin' && onDeleteLoan && (
                               <button

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Member, Installment } from '../types';
-import { PlusCircle, Search, Printer, Receipt, MessageSquare, Send, X, Calendar, User, DollarSign, Wallet, Download, ArrowLeft, Banknote, Check, Trash2, ShieldAlert, AlertCircle, Percent } from 'lucide-react';
+import { PlusCircle, Search, Printer, Receipt, MessageSquare, Send, X, Calendar, User, DollarSign, Wallet, Download, ArrowLeft, Banknote, Check, Trash2, ShieldAlert, AlertCircle, Percent, FileEdit } from 'lucide-react';
 import { ADMIN_PROFILE } from '../db';
 import { downloadPdf } from '../utils/pdfHelper';
 
@@ -9,6 +9,7 @@ interface InstallmentsProps {
   installments: Installment[];
   onAddInstallment: (newInst: Installment) => void;
   onDeleteInstallment: (id: string) => void;
+  onUpdateMember?: (updatedMember: Member) => void;
   role: 'admin' | 'owner' | 'member';
 }
 
@@ -33,11 +34,38 @@ const getBengaliOrdinal = (n: number) => {
   return `${toBengaliDigits(n)}তম`;
 };
 
-export default function Installments({ members, installments, onAddInstallment, onDeleteInstallment, role }: InstallmentsProps) {
+export default function Installments({ members, installments, onAddInstallment, onDeleteInstallment, onUpdateMember, role }: InstallmentsProps) {
   const [isAdding, setIsAdding] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedReceipt, setSelectedReceipt] = useState<Installment | null>(null);
   const [savingsTab, setSavingsTab] = useState<'members' | 'history'>('members');
+
+  const handleEditClick = (inst: Installment) => {
+    setEditingId(inst.id);
+    setMemberId(inst.memberId);
+    setAmount(inst.amount.toString());
+    setSavingsAmount((inst.savingsAmount || 0).toString());
+    setSavingsPercent((inst.savingsPercent || 0).toString());
+    setCustomProfitAmount((inst.fixedProfitAmount || inst.profitAmount || 0).toString());
+    setIsBorrowerSavings(!!inst.isBorrowerSavings);
+    setDate(inst.date);
+    setInstType(inst.type);
+    setIsAdding(true);
+  };
+
+  const handleCancelAdding = () => {
+    setIsAdding(false);
+    setEditingId(null);
+    setMemberId('');
+    setAmount('');
+    setSavingsAmount('');
+    setSavingsPercent('0');
+    setCustomProfitAmount('');
+    setDate(new Date().toISOString().split('T')[0]);
+    setInstType('weekly');
+    setIsBorrowerSavings(false);
+  };
 
   const getMemberTotalSavings = (mId: string) => {
     return installments
@@ -94,6 +122,71 @@ export default function Installments({ members, installments, onAddInstallment, 
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [instType, setInstType] = useState<'daily' | 'weekly' | 'monthly'>('weekly');
 
+  // New States for editing "কিস্তি ধরণ ও টার্গেট"
+  const [editingTargetMember, setEditingTargetMember] = useState<Member | null>(null);
+  const [newMemberType, setNewMemberType] = useState<'daily' | 'weekly' | 'monthly'>('weekly');
+  const [newMemberTargetAmount, setNewMemberTargetAmount] = useState('0');
+
+  // New States for editing "মোট সঞ্চয় জমা"
+  const [editingSavingsMember, setEditingSavingsMember] = useState<Member | null>(null);
+  const [editingInstallmentId, setEditingInstallmentId] = useState<string | null>(null);
+  const [editingInstallmentDate, setEditingInstallmentDate] = useState('');
+  const [editingInstallmentAmount, setEditingInstallmentAmount] = useState('');
+  const [editingInstallmentSavings, setEditingInstallmentSavings] = useState('');
+
+  const handleOpenEditTargetModal = (m: Member) => {
+    setEditingTargetMember(m);
+    setNewMemberType(m.type || 'weekly');
+    setNewMemberTargetAmount((m.targetInstallmentAmount || 0).toString());
+  };
+
+  const handleSaveTargetEdit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingTargetMember) return;
+    if (onUpdateMember) {
+      const updated: Member = {
+        ...editingTargetMember,
+        type: newMemberType,
+        targetInstallmentAmount: parseFloat(newMemberTargetAmount) || 0
+      };
+      onUpdateMember(updated);
+      showAlert('সফল!', `সদস্য "${editingTargetMember.name}" এর কিস্তির ধরণ ও টার্গেট সফলভাবে সংশোধন করা হয়েছে।`);
+      setEditingTargetMember(null);
+    } else {
+      showAlert('ত্রুটি', 'সদস্য আপডেট করার কোনো ফাংশন পাওয়া যায়নি!');
+    }
+  };
+
+  const handleOpenEditSavingsModal = (m: Member) => {
+    setEditingSavingsMember(m);
+    setEditingInstallmentId(null);
+  };
+
+  const handleStartInlineEditInstallment = (inst: Installment) => {
+    setEditingInstallmentId(inst.id);
+    setEditingInstallmentDate(inst.date);
+    setEditingInstallmentAmount(inst.amount.toString());
+    setEditingInstallmentSavings((inst.savingsAmount || 0).toString());
+  };
+
+  const handleSaveInlineEditInstallment = (inst: Installment) => {
+    const amt = parseFloat(editingInstallmentAmount) || 0;
+    const savAmt = parseFloat(editingInstallmentSavings) || 0;
+    if (amt < 0 || savAmt < 0) {
+      showAlert('ভুল ইনপুট!', 'টাকার পরিমাণ অবশ্যই ০ বা তার চেয়ে বড় হতে হবে!');
+      return;
+    }
+    const updated: Installment = {
+      ...inst,
+      date: editingInstallmentDate,
+      amount: amt,
+      savingsAmount: savAmt,
+    };
+    onAddInstallment(updated);
+    setEditingInstallmentId(null);
+    showAlert('সফল!', 'রশিদ বা সঞ্চয় তথ্য সফলভাবে সংশোধন করা হয়েছে।');
+  };
+
   // Clean selections (Only those who give savings, excluding pure borrowers)
   const activeMembers = members.filter(m => m?.status === 'active' && (m?.memberCategory || 'borrower') !== 'borrower');
   const selectedMember = members.find(m => m?.id === memberId);
@@ -145,7 +238,7 @@ export default function Installments({ members, installments, onAddInstallment, 
     if (!currentMember) return;
 
     const newInst: Installment = {
-      id: `INST-${Math.floor(1000 + Math.random() * 9000)}`,
+      id: editingId || `INST-${Math.floor(1000 + Math.random() * 9000)}`,
       memberId,
       memberName: currentMember.name,
       amount: instAmt,
@@ -160,6 +253,7 @@ export default function Installments({ members, installments, onAddInstallment, 
 
     onAddInstallment(newInst);
     setIsAdding(false);
+    setEditingId(null);
     
     // Auto show receipt after entry for fast printing!
     setSelectedReceipt(newInst);
@@ -275,14 +369,14 @@ export default function Installments({ members, installments, onAddInstallment, 
           <div className="bg-gradient-to-r from-emerald-600 to-teal-600 text-white p-4 sm:p-5 flex items-center justify-between shadow-md relative">
             <button
                type="button"
-               onClick={() => setIsAdding(false)}
+               onClick={handleCancelAdding}
                className="text-white hover:bg-white/10 p-1.5 rounded-full transition-all cursor-pointer absolute left-4"
                title="বন্ধ করুন"
             >
               <ArrowLeft className="h-5 w-5" />
             </button>
             <h3 className="text-[17px] font-bold select-none flex-1 text-center font-sans tracking-wide">
-              কিস্তি আদায় ও সঞ্চয় সংগ্রহ
+              {editingId ? 'সঞ্চয় জমা তথ্য সম্পাদন (সংশোধন)' : 'কিস্তি আদায় ও সঞ্চয় সংগ্রহ'}
             </h3>
             <div className="w-5 h-5"></div>
           </div>
@@ -510,8 +604,8 @@ export default function Installments({ members, installments, onAddInstallment, 
                 type="submit"
                 className="w-full py-3 sm:py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl font-bold text-xs sm:text-sm tracking-wide shadow-md hover:shadow-lg transition-all cursor-pointer flex items-center justify-center gap-1.5"
               >
-                <PlusCircle className="h-4 w-4" />
-                সঞ্চয় জমা নিশ্চিত করুন
+                {editingId ? <Check className="h-4 w-4" /> : <PlusCircle className="h-4 w-4" />}
+                {editingId ? 'হালনাগাদ (সংশোধন) নিশ্চিত করুন' : 'সঞ্চয় জমা নিশ্চিত করুন'}
               </button>
             </form>
           </div>
@@ -605,23 +699,53 @@ export default function Installments({ members, installments, onAddInstallment, 
                                </span>
                              </td>
                              <td className="p-4">
-                               <div>
-                                 <span className="text-[10px] text-slate-500 italic font-sans block">
-                                   {m.type === 'daily' ? 'দৈনিক' : m.type === 'weekly' ? 'সাপ্তাহিক' : 'মাসিক'}
-                                 </span>
-                                 <div className="font-extrabold text-slate-700 font-mono">{m.targetInstallmentAmount} ৳</div>
+                               <div className="flex items-center gap-1.5 group">
+                                 <div>
+                                   <span className="text-[10px] text-slate-500 italic font-sans block">
+                                     {m.type === 'daily' ? 'দৈনিক' : m.type === 'weekly' ? 'সাপ্তাহিক' : 'মাসিক'}
+                                   </span>
+                                   <div className="font-extrabold text-slate-700 font-mono">{m.targetInstallmentAmount} ৳</div>
+                                 </div>
+                                 {role === 'admin' && (
+                                   <button
+                                     type="button"
+                                     onClick={() => handleOpenEditTargetModal(m)}
+                                     className="p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded transition-all cursor-pointer shrink-0"
+                                     title="কিস্তি ধরণ ও টার্গেট পরিবর্তন করুন"
+                                   >
+                                     <FileEdit className="h-3.5 w-3.5" />
+                                   </button>
+                                 )}
                                </div>
                              </td>
                              <td className="p-4 font-mono text-emerald-600 font-bold text-xs">
-                               <div className="text-[11px] text-slate-550">সদস্য সঞ্চয়: <span className="font-extrabold text-emerald-600">{toBengaliDigits(totalSavings)} ৳</span></div>
-                               {getMemberBorrowerSavings(m.id) > 0 && (
-                                 <div className="text-[11px] text-indigo-700 font-bold mt-1">ঋণগ্রহীতা সঞ্চয়: <span className="text-indigo-600 font-extrabold">{toBengaliDigits(getMemberBorrowerSavings(m.id))} ৳</span></div>
-                               )}
-                               {totalProfit > 0 && (
-                                 <div className="text-[10px] text-teal-600 font-sans font-medium mt-1">
-                                   লভ্যাংশ: +{toBengaliDigits(totalProfit)} ৳
+                               <div className="flex items-center gap-1.5 group">
+                                 <div>
+                                   <div className="text-[11px] text-slate-550 font-sans">
+                                     সদস্য সঞ্চয়: <span className="font-extrabold text-emerald-600">{toBengaliDigits(totalSavings)} ৳</span>
+                                   </div>
+                                   {getMemberBorrowerSavings(m.id) > 0 && (
+                                     <div className="text-[11px] text-indigo-700 font-bold mt-1 font-sans">
+                                       ঋণগ্রহীতা সঞ্চয়: <span className="text-indigo-600 font-extrabold">{toBengaliDigits(getMemberBorrowerSavings(m.id))} ৳</span>
+                                     </div>
+                                   )}
+                                   {totalProfit > 0 && (
+                                     <div className="text-[10px] text-teal-600 font-sans font-medium mt-1">
+                                       লভ্যাংশ: +{toBengaliDigits(totalProfit)} ৳
+                                     </div>
+                                   )}
                                  </div>
-                               )}
+                                 {role === 'admin' && (
+                                   <button
+                                     type="button"
+                                     onClick={() => handleOpenEditSavingsModal(m)}
+                                     className="p-1 text-emerald-600 hover:text-emerald-800 hover:bg-emerald-50 rounded transition-all cursor-pointer shrink-0 animate-pulse hover:animate-none"
+                                     title="সঞ্চয় জমা খতিয়ান ও সংশোধন করুন"
+                                   >
+                                     <FileEdit className="h-3.5 w-3.5" />
+                                   </button>
+                                 )}
+                               </div>
                              </td>
                              <td className="p-4">
                                <div className="flex justify-center gap-1.5">
@@ -723,19 +847,28 @@ export default function Installments({ members, installments, onAddInstallment, 
                                 মানি রসিদ
                               </button>
                               {role === 'admin' && (
-                                <button
-                                  onClick={() => {
-                                    showConfirm(
-                                      'কিস্তি জমা ডিলিট',
-                                      'আপনি কি নিশ্চিত এই কিস্তি জমার তথ্যটি মুছতে চান? এটি রি-সাইকেল বিনে জমা হবে।',
-                                      () => onDeleteInstallment(i.id)
-                                    );
-                                  }}
-                                  className="p-1 px-1.5 text-rose-600 hover:bg-rose-50 border border-rose-200 hover:border-rose-300 rounded cursor-pointer transition-all flex items-center justify-center gap-0.5"
-                                  title="মুছুন"
-                                >
-                                  <Trash2 className="h-3 w-3" />
-                                </button>
+                                <>
+                                  <button
+                                    onClick={() => handleEditClick(i)}
+                                    className="p-1 px-1.5 text-blue-600 hover:bg-blue-50 border border-blue-200 hover:border-blue-300 rounded cursor-pointer transition-all flex items-center justify-center gap-0.5"
+                                    title="সম্পাদনা (সংশোধন)"
+                                  >
+                                    <FileEdit className="h-3 w-3" />
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      showConfirm(
+                                        'কিস্তি জমা ডিলিট',
+                                        'আপনি কি নিশ্চিত এই কিস্তি জমার তথ্যটি মুছতে চান? এটি রি-সাইকেল বিনে জমা হবে।',
+                                        () => onDeleteInstallment(i.id)
+                                      );
+                                    }}
+                                    className="p-1 px-1.5 text-rose-600 hover:bg-rose-50 border border-rose-200 hover:border-rose-300 rounded cursor-pointer transition-all flex items-center justify-center gap-0.5"
+                                    title="মুছুন"
+                                  >
+                                    <Trash2 className="h-3 w-3" />
+                                  </button>
+                                </>
                               )}
                             </div>
                           </td>
@@ -980,6 +1113,257 @@ export default function Installments({ members, installments, onAddInstallment, 
                   এসএমএস (SMS)
                 </a>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 1. Modal for editing target & type */}
+      {editingTargetMember && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-6 shadow-2xl max-w-sm w-full border border-slate-100 text-slate-800 text-left animate-in zoom-in-95 duration-200">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-sm font-bold text-slate-900 font-sans">কিস্তি ধরণ ও টার্গেট সংশোধন</h3>
+              <button
+                type="button"
+                onClick={() => setEditingTargetMember(null)}
+                className="p-1 hover:bg-slate-100 rounded-full transition-colors cursor-pointer"
+              >
+                <X className="h-4 w-4 text-slate-500" />
+              </button>
+            </div>
+            
+            <div className="mb-4 bg-slate-50 p-3 rounded-2xl border border-slate-100">
+              <p className="text-[10px] text-slate-450 font-sans">সদস্যের নাম ও আইডি</p>
+              <h4 className="text-xs font-bold text-slate-800 mt-0.5">{editingTargetMember.name} ({editingTargetMember.id})</h4>
+            </div>
+
+            <form onSubmit={handleSaveTargetEdit} className="space-y-4">
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 mb-1.5">কিস্তির ধরণ</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {(['daily', 'weekly', 'monthly'] as const).map((t) => (
+                    <button
+                      key={t}
+                      type="button"
+                      onClick={() => setNewMemberType(t)}
+                      className={`py-2 px-1 text-center rounded-xl text-[10px] font-bold transition-all border cursor-pointer ${
+                        newMemberType === t
+                          ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                          : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                      }`}
+                    >
+                      {t === 'daily' ? 'দৈনিক' : t === 'weekly' ? 'সাপ্তাহিক' : 'মাসিক'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 mb-1.5">টার্গেট কিস্তির পরিমাণ (৳)</label>
+                <input
+                  type="number"
+                  required
+                  value={newMemberTargetAmount}
+                  onChange={(e) => setNewMemberTargetAmount(e.target.value)}
+                  className="w-full p-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 font-sans"
+                />
+              </div>
+
+              <div className="flex gap-2.5 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setEditingTargetMember(null)}
+                  className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-[10px] transition-all cursor-pointer"
+                >
+                  বাতিল করুন
+                </button>
+                <button
+                  type="submit"
+                  className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-[10px] transition-all shadow-md active:scale-95 cursor-pointer"
+                >
+                  সংশোধন নিশ্চিত
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 2. Modal for editing member's savings entries (ledger) */}
+      {editingSavingsMember && (
+        <div className="fixed inset-0 z-40 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-6 shadow-2xl max-w-xl w-full border border-slate-100 text-slate-800 text-left animate-in zoom-in-95 duration-200 max-h-[90vh] flex flex-col">
+            <div className="flex justify-between items-center mb-3 shrink-0">
+              <div>
+                <h3 className="text-sm font-extrabold text-slate-900 font-sans">সদস্য সঞ্চয় খতিয়ান ও সংশোধন</h3>
+                <p className="text-[10px] text-slate-500 mt-0.5">রশিদ ভিত্তিক সঞ্চয় জমা সংশোধন / ডিলিট করার খাতা</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingSavingsMember(null)}
+                className="p-1.5 hover:bg-slate-100 rounded-full transition-colors cursor-pointer"
+              >
+                <X className="h-4.5 w-4.5 text-slate-500" />
+              </button>
+            </div>
+
+            <div className="mb-4 bg-emerald-50/50 p-4 rounded-2xl border border-emerald-100/50 flex flex-col md:flex-row md:items-center justify-between gap-3 shrink-0">
+              <div>
+                <span className="text-[9px] text-slate-400 font-sans uppercase font-bold">সদস্য বিবরণী</span>
+                <h4 className="text-xs font-black text-slate-800">{editingSavingsMember.name} ({editingSavingsMember.id})</h4>
+              </div>
+              <div className="text-right">
+                <span className="text-[9px] text-slate-400 font-sans uppercase font-bold">মোট জমানো সঞ্চয়</span>
+                <div className="text-sm font-black text-emerald-600 font-sans">
+                  {getMemberTotalSavings(editingSavingsMember.id)} ৳
+                </div>
+              </div>
+            </div>
+
+            {/* List of installments/savings entries of this specific member */}
+            <div className="flex-1 overflow-y-auto pr-1 space-y-3 mb-4 min-h-[250px]">
+              <h5 className="text-[10px] font-bold text-slate-500 mb-2 sticky top-0 bg-white py-1">জমা রশিদের তালিকা</h5>
+              {installments.filter(i => i.memberId === editingSavingsMember.id).length > 0 ? (
+                installments
+                  .filter(i => i.memberId === editingSavingsMember.id)
+                  .sort((a,b) => b.date.localeCompare(a.date))
+                  .map((inst) => {
+                    const isEditingThis = editingInstallmentId === inst.id;
+                    return (
+                      <div key={inst.id} className={`p-3 rounded-2xl border transition-all ${
+                        isEditingThis ? 'bg-amber-50/40 border-amber-200 shadow-sm' : 'bg-slate-50/40 border-slate-100 hover:border-slate-200'
+                      }`}>
+                        {isEditingThis ? (
+                          /* Inline edit form */
+                          <div className="space-y-3">
+                            <div className="grid grid-cols-3 gap-2">
+                              <div>
+                                <label className="block text-[8px] font-bold text-slate-500 mb-1">তারিখ</label>
+                                <input
+                                  type="date"
+                                  value={editingInstallmentDate}
+                                  onChange={(e) => setEditingInstallmentDate(e.target.value)}
+                                  className="w-full p-1.5 bg-white border border-slate-200 rounded-lg text-[10px] outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-100 font-sans font-bold"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-[8px] font-bold text-slate-500 mb-1">মূল কিস্তি (৳)</label>
+                                <input
+                                  type="number"
+                                  value={editingInstallmentAmount}
+                                  onChange={(e) => setEditingInstallmentAmount(e.target.value)}
+                                  className="w-full p-1.5 bg-white border border-slate-200 rounded-lg text-[10px] outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-100 font-sans font-bold"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-[8px] font-bold text-slate-500 mb-1">অতিরিক্ত সঞ্চয় (৳)</label>
+                                <input
+                                  type="number"
+                                  value={editingInstallmentSavings}
+                                  onChange={(e) => setEditingInstallmentSavings(e.target.value)}
+                                  className="w-full p-1.5 bg-white border border-slate-200 rounded-lg text-[10px] outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-100 font-sans font-bold"
+                                />
+                              </div>
+                            </div>
+                            <div className="flex justify-end gap-2 text-[10px] font-bold pt-1">
+                              <button
+                                type="button"
+                                onClick={() => setEditingInstallmentId(null)}
+                                className="px-2.5 py-1 bg-slate-150 hover:bg-slate-200 text-slate-600 rounded-lg transition-colors cursor-pointer"
+                              >
+                                বাতিল
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleSaveInlineEditInstallment(inst)}
+                                className="px-3 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg shadow transition-colors flex items-center gap-1 cursor-pointer"
+                              >
+                                <Check className="h-3 w-3" /> সংশোধন নিশ্চিত
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          /* View Mode */
+                          <div className="flex items-center justify-between gap-2.5">
+                            <div>
+                              <div className="flex items-center gap-1.5">
+                                <span className="font-sans font-extrabold text-[11px] text-slate-800">
+                                  {inst.amount + (inst.savingsAmount || 0)} ৳
+                                </span>
+                                <span className="text-[8px] font-mono bg-slate-200 text-slate-600 px-1 py-0.5 rounded tracking-wider">
+                                  {inst.id}
+                                </span>
+                              </div>
+                              <div className="text-[9px] text-slate-400 mt-1 font-sans flex items-center gap-2">
+                                <span>তারিখ: {inst.date}</span>
+                                <span className="text-slate-300">|</span>
+                                <span>কিস্তি: {inst.amount} ৳</span>
+                                {inst.savingsAmount ? (
+                                  <>
+                                    <span className="text-slate-300">|</span>
+                                    <span>অতিরিক্ত: {inst.savingsAmount} ৳</span>
+                                  </>
+                                ) : null}
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => handleStartInlineEditInstallment(inst)}
+                                className="p-1 bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-100 rounded text-[9px] font-sans font-bold cursor-pointer transition-colors"
+                              >
+                                সংশোধন
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  showConfirm(
+                                    'রশিদ ডিলিট নিশ্চিতকরণ',
+                                    `আপনি কি নিশ্চিতভাবেই রশিদ "${inst.id}" ডিলিট করতে চান? ডিলিট করলে ${inst.amount + (inst.savingsAmount || 0)} ৳ সঞ্চয় মোট তহবিল থেকে কেটে নেওয়া হবে।`,
+                                    () => {
+                                      onDeleteInstallment(inst.id);
+                                      showAlert('সফল!', 'রশিদটি সফলভাবে ডিলিট করা হয়েছে এবং তহবিল হালনাগাদ করা হয়েছে।');
+                                    }
+                                  );
+                                }}
+                                className="p-1 bg-rose-50 text-rose-600 hover:bg-rose-100 border border-rose-100 rounded text-[9px] cursor-pointer transition-colors"
+                                title="ডিলিট করুন"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })
+              ) : (
+                <div className="text-center py-10 bg-slate-50 rounded-2xl text-slate-400 text-xs">
+                  কোনো সঞ্চয় জমা রশিদ পাওয়া যায়নি!
+                </div>
+              )}
+            </div>
+
+            <div className="border-t pt-4 flex gap-3 shrink-0">
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingSavingsMember(null);
+                  handleQuickAddSavings(editingSavingsMember.id);
+                }}
+                className="w-full py-2.5 bg-emerald-650 hover:bg-emerald-700 text-white font-bold rounded-xl text-[10px] transition-all shadow active:scale-95 cursor-pointer flex items-center justify-center gap-1.5"
+              >
+                <PlusCircle className="h-4 w-4" /> নতুন জমা যোগ করুন
+              </button>
+              <button
+                type="button"
+                onClick={() => setEditingSavingsMember(null)}
+                className="w-full py-2.5 bg-slate-105 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-[10px] transition-all cursor-pointer"
+              >
+                বন্ধ করুন
+              </button>
             </div>
           </div>
         </div>

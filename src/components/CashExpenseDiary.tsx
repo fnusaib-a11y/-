@@ -166,6 +166,25 @@ export default function CashExpenseDiary({
     setExpenseNote('');
   };
 
+  const handleEditMonthlyExpense = (exp: MonthlyExpense) => {
+    setSelectedMonth(exp.month);
+    setExpense1(exp.expense1 ? exp.expense1.toString() : '');
+    setExpense2(exp.expense2 ? exp.expense2.toString() : '');
+    setExpense3(exp.expense3 ? exp.expense3.toString() : '');
+    setExpense4(exp.expense4 ? exp.expense4.toString() : '');
+    setExpense5(exp.expense5 ? exp.expense5.toString() : '');
+    setExpense6(exp.expense6 ? exp.expense6.toString() : '');
+    setExpense7(exp.expense7 ? exp.expense7.toString() : '');
+    setExpense8(exp.expense8 ? exp.expense8.toString() : '');
+    setExpense9(exp.expense9 ? exp.expense9.toString() : '');
+    setExpense10(exp.expense10 ? exp.expense10.toString() : '');
+    setExpense11(exp.expense11 ? exp.expense11.toString() : '');
+    setExpense12(exp.expense12 ? exp.expense12.toString() : '');
+    setExpenseNote(exp.note || '');
+    setSelectedExpenseDetail(null);
+    showAlert('লোড হয়েছে!', `${exp.month} মাসের খরচ খাতাটি এডিট করার জন্য ফর্মে লোড করা হয়েছে।`);
+  };
+
   const handleVaultSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (role === 'owner') return; // Enforce security rules
@@ -715,6 +734,15 @@ export default function CashExpenseDiary({
               >
                 <Download className="h-4 w-4" /> পিডিএফ ডাউনলোড করুন
               </button>
+              {role === 'admin' && (
+                <button
+                  type="button"
+                  onClick={() => handleEditMonthlyExpense(selectedExpenseDetail)}
+                  className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl cursor-pointer"
+                >
+                  <Pencil className="h-4 w-4" /> এডিট করুন
+                </button>
+              )}
               <button
                 onClick={() => setSelectedExpenseDetail(null)}
                 className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl cursor-pointer"

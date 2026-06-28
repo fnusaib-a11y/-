@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Member, Installment, Loan, LedgerEntry, LoanRepayment } from '../types';
-import { Download, Search, Printer, Calendar, FileText, CheckCircle, TrendingUp, AlertTriangle, ArrowUpRight, ArrowDownRight, Wallet } from 'lucide-react';
+import { Download, Search, Printer, Calendar, FileText, CheckCircle, TrendingUp, AlertTriangle, ArrowUpRight, ArrowDownRight, Wallet, X, FileEdit } from 'lucide-react';
 import { ADMIN_PROFILE } from '../db';
 import { downloadPdf } from '../utils/pdfHelper';
 
@@ -34,10 +34,27 @@ export default function Reports({ members, installments, loans, role, ledger, lo
   };
 
   // Ledger form states
+  const [editingLedgerId, setEditingLedgerId] = useState<string | null>(null);
   const [ledgerType, setLedgerType] = useState<'income' | 'expense' | 'surplus'>('income');
   const [ledgerDesc, setLedgerDesc] = useState('');
   const [ledgerAmount, setLedgerAmount] = useState('');
   const [ledgerDate, setLedgerDate] = useState(new Date().toISOString().split('T')[0]);
+
+  const handleEditLedgerClick = (item: LedgerEntry) => {
+    setEditingLedgerId(item.id);
+    setLedgerType(item.type);
+    setLedgerDesc(item.description);
+    setLedgerAmount(item.amount.toString());
+    setLedgerDate(item.date);
+  };
+
+  const handleCancelLedgerEdit = () => {
+    setEditingLedgerId(null);
+    setLedgerType('income');
+    setLedgerDesc('');
+    setLedgerAmount('');
+    setLedgerDate(new Date().toISOString().split('T')[0]);
+  };
 
   const handleAddLedgerSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -47,12 +64,13 @@ export default function Reports({ members, installments, loans, role, ledger, lo
       return;
     }
     onAddLedger({
-      id: `LEDG-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      id: editingLedgerId || `LEDG-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
       type: ledgerType,
       description: ledgerDesc.trim(),
       amount: amt,
       date: ledgerDate
     });
+    setEditingLedgerId(null);
     setLedgerDesc('');
     setLedgerAmount('');
   };
@@ -509,7 +527,7 @@ export default function Reports({ members, installments, loans, role, ledger, lo
               <div className="bg-white p-5 rounded-2xl border border-slate-100 h-fit space-y-4 text-left">
                 <h4 className="text-xs font-bold text-slate-700 border-b pb-2.5 flex items-center gap-1.5">
                   <Wallet className="h-4.5 w-4.5 text-emerald-600" />
-                  নতুন আয় / ব্যয় / অতিরিক্ত ক্যাশ এন্ট্রি
+                  {editingLedgerId ? 'খতিয়ান এন্ট্রি সম্পাদন (সংশোধন)' : 'নতুন আয় / ব্যয় / অতিরিক্ত ক্যাশ এন্ট্রি'}
                 </h4>
 
                 {/* Quick Preset Macros - Extremely Helpful for the Association! */}
@@ -602,8 +620,17 @@ export default function Reports({ members, installments, loans, role, ledger, lo
                     type="submit"
                     className="w-full p-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-1.5"
                   >
-                    <CheckCircle className="h-4 w-4" /> এন্ট্রি যোগ করুন
+                    <CheckCircle className="h-4 w-4" /> {editingLedgerId ? 'হালনাগাদ নিশ্চিত করুন' : 'এন্ট্রি যোগ করুন'}
                   </button>
+                  {editingLedgerId && (
+                    <button
+                      type="button"
+                      onClick={handleCancelLedgerEdit}
+                      className="w-full p-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 mt-2"
+                    >
+                      <X className="h-4 w-4" /> বাতিল করুন
+                    </button>
+                  )}
                 </form>
               </div>
             )}
@@ -749,7 +776,15 @@ export default function Reports({ members, installments, loans, role, ledger, lo
                                 {item.type === 'expense' ? '-' : '+'}{item.amount} ৳
                               </td>
                               {role === 'admin' && (
-                                <td className="p-2.5 text-center">
+                                <td className="p-2.5 text-center flex items-center justify-center gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleEditLedgerClick(item)}
+                                    className="text-[10px] text-blue-600 hover:text-blue-800 font-sans hover:underline cursor-pointer"
+                                  >
+                                    সম্পাদনা
+                                  </button>
+                                  <span className="text-slate-300">|</span>
                                   <button
                                     type="button"
                                     onClick={() => onDeleteLedger(item.id)}

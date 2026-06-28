@@ -2145,6 +2145,7 @@ export default function App() {
               installments={currentRole === 'member' ? memberPersonalInstallments : installments}
               onAddInstallment={handleAddInstallment}
               onDeleteInstallment={handleDeleteInstallment}
+              onUpdateMember={handleUpdateMember}
               role={currentRole}
             />
           )}
