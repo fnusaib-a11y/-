@@ -773,8 +773,12 @@ export default function App() {
     if (!targetMember) return;
 
     try {
-      // Find all installments of this member and delete them
+      // Find all related documents
       const memberInstallments = installments.filter(inst => inst.memberId === id);
+      const memberLoans = loans.filter(l => l.memberId === id);
+      const memberRepayments = loanRepayments.filter(r => r.memberId === id);
+      const memberPinRequests = pinRequests.filter(p => p.memberId === id);
+
       const batch = writeBatch(db);
 
       // Delete member document
@@ -785,22 +789,39 @@ export default function App() {
         batch.delete(doc(db, 'installments', inst.id));
       });
 
+      // Delete matching loans
+      memberLoans.forEach(l => {
+        batch.delete(doc(db, 'loans', l.id));
+      });
+
+      // Delete matching repayments
+      memberRepayments.forEach(r => {
+        batch.delete(doc(db, 'loan_repayments', r.id));
+      });
+
+      // Delete matching pin requests
+      memberPinRequests.forEach(p => {
+        batch.delete(doc(db, 'pin_requests', p.id));
+      });
+
       const trashId = `TRASH-${Date.now()}`;
       const newTrash: TrashLog = {
         id: trashId,
         type: 'member',
         data: {
           member: targetMember,
-          deletedInstallments: memberInstallments
+          deletedInstallments: memberInstallments,
+          deletedLoans: memberLoans,
+          deletedRepayments: memberRepayments
         },
         deletedAt: new Date().toISOString().replace('T', ' ').slice(0, 19),
-        description: `সদস্য: ${targetMember.name} (ID: ${targetMember.id}), মোবাইল: ${targetMember.phone} এবং তার জমা কৃত সকল সঞ্চয়/কিস্তি অটো মুছে ফেলা হয়েছে।`
+        description: `সদস্য: ${targetMember.name} (ID: ${targetMember.id}), মোবাইল: ${targetMember.phone} এবং তার জমা কৃত সকল সঞ্চয়/কিস্তি ও ঋণ অটো মুছে ফেলা হয়েছে।`
       };
       batch.set(doc(db, 'trash', trashId), newTrash);
 
       await batch.commit();
     } catch (err) {
-      console.error('Error deleting member and their installments:', err);
+      console.error('Error deleting member and their sub-records:', err);
       handleFirestoreError(err, OperationType.DELETE, `members/${id}`);
     }
   };
@@ -1327,28 +1348,33 @@ export default function App() {
   const totalMemberCount = members.length;
   const activeMemberCount = members.filter(m => m.status === 'active').length;
 
+  // Filter collections to only existing members so deleted members' data are automatically excluded from all sums and statistics!
+  const validInstallments = installments.filter(item => members.some(m => m.id === item.memberId));
+  const validLoans = loans.filter(item => members.some(m => m.id === item.memberId));
+  const validLoanRepayments = loanRepayments.filter(item => members.some(m => m.id === item.memberId));
+
   // 1. Total savings deposited = regular installments + extra savings (Excluding borrower savings!)
-  const totalSavingsSum = Math.round(installments
+  const totalSavingsSum = Math.round(validInstallments
     .filter(item => !item.isBorrowerSavings)
     .reduce((sum, item) => sum + (Number(item.amount) || 0) + (Number(item.savingsAmount) || 0), 0));
 
   // 1b. Total borrower savings deposited directly as borrower savings (Excluding regular member savings!)
-  const totalBorrowerSavingsSum = Math.round(installments
+  const totalBorrowerSavingsSum = Math.round(validInstallments
     .filter(item => item.isBorrowerSavings)
     .reduce((sum, item) => sum + (Number(item.amount) || 0) + (Number(item.savingsAmount) || 0), 0));
 
   // 2. Total loan principal disbursed (subtract core principal from money container, not principalAmount which includes interest profit)
-  const totalLoansDisbursedPrincipal = Math.round(loans.reduce((sum, l) => {
+  const totalLoansDisbursedPrincipal = Math.round(validLoans.reduce((sum, l) => {
     const orig = Number(l.originalPrincipal) || (Number(l.principalAmount) - (Number(l.profitAmount) || 0)) || 0;
     return sum + orig;
   }, 0));
 
   // 3. Total principal repaid (recovered principal)
-  const totalLoansRecoveredPrincipal = Math.round(loans.reduce((sum, l) => sum + (Number(l.repaidAmount) || 0), 0));
+  const totalLoansRecoveredPrincipal = Math.round(validLoans.reduce((sum, l) => sum + (Number(l.repaidAmount) || 0), 0));
 
   // 4. Total outstanding principal loan due
   const totalLoansDueSum = totalLoansDisbursedPrincipal - totalLoansRecoveredPrincipal;
-  const totalLoansProfitDueSum = Math.round(loans.reduce((sum, item) => {
+  const totalLoansProfitDueSum = Math.round(validLoans.reduce((sum, item) => {
     const prof = Number(item.profitAmount) || 0;
     const repaidProf = Number(item.profitRepaid) || 0;
     return sum + (prof - repaidProf);
@@ -1356,24 +1382,24 @@ export default function App() {
   const totalCombinedLoansDueSum = Math.round(totalLoansDueSum + totalLoansProfitDueSum);
 
   // 5. Total Percentage Profits Vault (আলাদা মুনাফা ও লভ্যাংশ তহবিল - completely separate folder!)
-  const totalSavingsPercentProfit = Math.round(installments.reduce((sum, item) => sum + (Number(item.profitAmount) || 0), 0));
-  const totalLoanPercentProfit = Math.round(loans.reduce((sum, item) => sum + (Number(item.profitRepaid) || 0), 0));
+  const totalSavingsPercentProfit = Math.round(validInstallments.reduce((sum, item) => sum + (Number(item.profitAmount) || 0), 0));
+  const totalLoanPercentProfit = Math.round(validLoans.reduce((sum, item) => sum + (Number(item.profitRepaid) || 0), 0));
   const totalPercentageProfitSum = Math.round(totalSavingsPercentProfit + totalLoanPercentProfit);
 
   const customIncomeSum = Math.round(ledger ? ledger.filter(l => l.type === 'income').reduce((sum, item) => sum + (Number(item.amount) || 0), 0) : 0);
   const customExpenseSum = Math.round(ledger ? ledger.filter(l => l.type === 'expense').reduce((sum, item) => sum + (Number(item.amount) || 0), 0) : 0);
   const customSurplusSum = Math.round(ledger ? ledger.filter(l => l.type === 'surplus').reduce((sum, item) => sum + (Number(item.amount) || 0), 0) : 0);
 
-  const totalLoanPenalties = Math.round(loanRepayments.reduce((sum, item) => sum + (Number(item.penaltyPaid) || 0), 0));
+  const totalLoanPenalties = Math.round(validLoanRepayments.reduce((sum, item) => sum + (Number(item.penaltyPaid) || 0), 0));
 
   // Net Cash Balance includes all collections but EXCLUDES savings deposits (as per user request: savings does not count to cash/main balance)
   const totalCashBalanceOfCoop = Math.round(totalLoansRecoveredPrincipal + totalLoanPercentProfit + totalLoanPenalties + customIncomeSum + customSurplusSum - totalLoansDisbursedPrincipal - customExpenseSum);
 
   const todayDateStr = new Date().toISOString().split('T')[0];
-  const todaySavingsCollectionsSum = Math.round(installments
+  const todaySavingsCollectionsSum = Math.round(validInstallments
     .filter(i => i.date === todayDateStr)
     .reduce((sum, item) => sum + (Number(item.amount) || 0) + (Number(item.savingsAmount) || 0), 0));
-  const todayLoanCollectionsSum = Math.round(loanRepayments
+  const todayLoanCollectionsSum = Math.round(validLoanRepayments
     .filter(r => r.date === todayDateStr)
     .reduce((sum, item) => sum + (Number(item.repayAmount) || 0), 0));
   const todayCollectionsSum = Math.round(todaySavingsCollectionsSum + todayLoanCollectionsSum);
@@ -2159,7 +2185,7 @@ export default function App() {
           {activeTab === 'installments' && (
             <Installments
               members={members}
-              installments={currentRole === 'member' ? memberPersonalInstallments : installments}
+              installments={currentRole === 'member' ? memberPersonalInstallments : validInstallments}
               onAddInstallment={handleAddInstallment}
               onDeleteInstallment={handleDeleteInstallment}
               onUpdateMember={handleUpdateMember}
@@ -2171,7 +2197,7 @@ export default function App() {
           {activeTab === 'loans' && (
             <Loans
               members={members}
-              loans={loans}
+              loans={validLoans}
               onAddLoan={handleAddLoan}
               onRepayLoan={handleRepayLoan}
               onDeleteLoan={handleDeleteLoan}
@@ -2184,11 +2210,11 @@ export default function App() {
           {activeTab === 'reports' && currentRole !== 'member' && (
             <Reports
               members={members}
-              installments={installments}
-              loans={loans}
+              installments={validInstallments}
+              loans={validLoans}
               role={currentRole}
               ledger={ledger}
-              loanRepayments={loanRepayments}
+              loanRepayments={validLoanRepayments}
               onAddLedger={handleAddLedgerEntry}
               onDeleteLedger={handleDeleteLedgerEntry}
             />
