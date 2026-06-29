@@ -773,17 +773,34 @@ export default function App() {
     if (!targetMember) return;
 
     try {
-      await deleteDoc(doc(db, 'members', id));
+      // Find all installments of this member and delete them
+      const memberInstallments = installments.filter(inst => inst.memberId === id);
+      const batch = writeBatch(db);
+
+      // Delete member document
+      batch.delete(doc(db, 'members', id));
+
+      // Delete matching installments
+      memberInstallments.forEach(inst => {
+        batch.delete(doc(db, 'installments', inst.id));
+      });
+
+      const trashId = `TRASH-${Date.now()}`;
       const newTrash: TrashLog = {
-        id: `TRASH-${Date.now()}`,
+        id: trashId,
         type: 'member',
-        data: targetMember,
+        data: {
+          member: targetMember,
+          deletedInstallments: memberInstallments
+        },
         deletedAt: new Date().toISOString().replace('T', ' ').slice(0, 19),
-        description: `সদস্য: ${targetMember.name} (ID: ${targetMember.id}), মোবাইল: ${targetMember.phone}`
+        description: `সদস্য: ${targetMember.name} (ID: ${targetMember.id}), মোবাইল: ${targetMember.phone} এবং তার জমা কৃত সকল সঞ্চয়/কিস্তি অটো মুছে ফেলা হয়েছে।`
       };
-      await setDoc(doc(db, 'trash', newTrash.id), newTrash);
+      batch.set(doc(db, 'trash', trashId), newTrash);
+
+      await batch.commit();
     } catch (err) {
-      console.error('Error deleting member:', err);
+      console.error('Error deleting member and their installments:', err);
       handleFirestoreError(err, OperationType.DELETE, `members/${id}`);
     }
   };
